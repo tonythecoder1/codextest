@@ -74,6 +74,18 @@ body {
   color: var(--text);
 }
 
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.nav-user form {
+  margin: 0;
+}
+
 .app-shell {
   padding-top: 2rem;
 }
@@ -249,6 +261,11 @@ body {
   background: rgba(245, 158, 11, 0.18);
 }
 
+.status-admin {
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.14);
+}
+
 .filter-shell,
 .form-shell {
   margin-bottom: 1.5rem;
@@ -305,6 +322,138 @@ body {
   height: 3.25rem;
 }
 
+.form-hint {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.auth-shell {
+  display: grid;
+  min-height: 68vh;
+  place-items: center;
+}
+
+.auth-card {
+  width: min(100%, 28rem);
+}
+
+.login-help {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  color: var(--muted);
+  background: rgba(15, 118, 110, 0.08);
+  font-size: 0.9rem;
+}
+
+.calendar-picker {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1.3rem;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.calendar-toolbar strong {
+  text-transform: capitalize;
+}
+
+.calendar-weekdays,
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.calendar-weekdays {
+  margin-bottom: 0.45rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 0.9rem;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.84);
+  font-weight: 700;
+}
+
+.calendar-day:hover,
+.calendar-day:focus {
+  border-color: rgba(15, 118, 110, 0.35);
+  outline: none;
+}
+
+.calendar-day.is-muted {
+  color: rgba(102, 112, 133, 0.45);
+}
+
+.calendar-day.is-selected {
+  color: #fff;
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 10px 22px rgba(15, 118, 110, 0.22);
+}
+
+.calendar-day.has-entry {
+  color: #fff;
+  border-color: var(--accent);
+  background: linear-gradient(135deg, var(--accent), #0ea5a0);
+}
+
+.calendar-day.is-disabled {
+  cursor: not-allowed;
+  color: rgba(102, 112, 133, 0.35);
+  background: rgba(255, 255, 255, 0.34);
+  border-style: dashed;
+}
+
+.pending-entry-shell {
+  margin-top: 1.5rem;
+}
+
+.pending-entry-list {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.pending-entry-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.pending-entry-item p {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+}
+
+.entry-modal {
+  border: 0;
+  border-radius: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
 .btn-primary {
   border-color: var(--accent);
   background: var(--accent);
@@ -338,6 +487,7 @@ body {
   .section-heading,
   .entry-item,
   .summary-item,
+  .nav-user,
   .footer-content {
     flex-direction: column;
     align-items: start;

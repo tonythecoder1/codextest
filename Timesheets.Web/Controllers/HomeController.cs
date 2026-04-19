@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Timesheets.Web.Data;
@@ -7,6 +8,7 @@ using Timesheets.Web.ViewModels;
 
 namespace Timesheets.Web.Controllers;
 
+[Authorize]
 public class HomeController(ILogger<HomeController> logger, AppDbContext context) : Controller
 {
     public async Task<IActionResult> Index()

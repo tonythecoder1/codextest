@@ -4,6 +4,7 @@ namespace Timesheets.Web.ViewModels;
 
 public class TimesheetEntriesIndexViewModel
 {
+    public bool CanChooseEmployee { get; set; }
     public int? EmployeeId { get; set; }
     public int? ProjectId { get; set; }
     public DateTime? FromDate { get; set; }

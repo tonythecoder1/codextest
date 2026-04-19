@@ -20,21 +20,40 @@
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="mainNav">
-                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Home" asp-action="Index">Dashboard</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="TimesheetEntries" asp-action="Index">Horas</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Employees" asp-action="Index">Colaboradores</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Projects" asp-action="Index">Projetos</a>
-                        </li>
-                    </ul>
-                    <a class="btn btn-primary btn-sm simple-action-button" asp-controller="TimesheetEntries" asp-action="Create">Novo registo</a>
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Home" asp-action="Index">Dashboard</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="TimesheetEntries" asp-action="Index">Horas</a>
+                            </li>
+                            @if (User.IsInRole("Admin"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Employees" asp-action="Index">Colaboradores</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Projects" asp-action="Index">Projetos</a>
+                                </li>
+                            }
+                        </ul>
+                        <div class="nav-user">
+                            <span>@User.Identity.Name</span>
+                            <a class="btn btn-primary btn-sm simple-action-button" asp-controller="TimesheetEntries" asp-action="Create">Novo registo</a>
+                            <form asp-controller="Account" asp-action="Logout" method="post">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-outline-secondary btn-sm">Sair</button>
+                            </form>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="ms-auto">
+                            <a class="btn btn-primary btn-sm" asp-controller="Account" asp-action="Login">Entrar</a>
+                        </div>
+                    }
                 </div>
             </nav>
         </div>

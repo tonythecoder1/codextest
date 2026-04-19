@@ -12,7 +12,7 @@ public class TimesheetEntry
     public DateTime WorkDate { get; set; } = DateTime.Today;
 
     [Required]
-    [Range(0.25, 24)]
+    [Range(0.25, 12)]
     [Display(Name = "Horas")]
     public decimal Hours { get; set; }
 

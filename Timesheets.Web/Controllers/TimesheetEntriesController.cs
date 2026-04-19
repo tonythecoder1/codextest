@@ -1,3 +1,6 @@
+using System.Security.Claims;
+using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -7,10 +10,16 @@ using Timesheets.Web.ViewModels;
 
 namespace Timesheets.Web.Controllers;
 
+[Authorize]
 public class TimesheetEntriesController(AppDbContext context) : Controller
 {
     public async Task<IActionResult> Index(int? employeeId, int? projectId, DateTime? fromDate, DateTime? toDate)
     {
+        if (!IsAdmin())
+        {
+            employeeId = GetCurrentEmployeeId();
+        }
+
         var query = context.TimesheetEntries
             .AsNoTracking()
             .Include(e => e.Employee)
@@ -43,6 +52,7 @@ public class TimesheetEntriesController(AppDbContext context) : Controller
 
         var model = new TimesheetEntriesIndexViewModel
         {
+            CanChooseEmployee = IsAdmin(),
             EmployeeId = employeeId,
             ProjectId = projectId,
             FromDate = fromDate,
@@ -71,11 +81,13 @@ public class TimesheetEntriesController(AppDbContext context) : Controller
 
     public async Task<IActionResult> Create()
     {
-        var model = new TimesheetEntryFormViewModel
+        var isAdmin = IsAdmin();
+        var model = new TimesheetEntryCreateViewModel
         {
-            WorkDate = DateTime.Today,
-            Employees = await GetEmployeeOptionsAsync(),
-            Projects = await GetProjectOptionsAsync()
+            CanChooseEmployee = isAdmin,
+            EmployeeId = isAdmin ? 0 : GetCurrentEmployeeId(),
+            Employees = isAdmin ? await GetEmployeeOptionsAsync() : [],
+            Projects = await GetProjectCalendarOptionsAsync()
         };
 
         return View(model);
@@ -83,27 +95,52 @@ public class TimesheetEntriesController(AppDbContext context) : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(TimesheetEntryFormViewModel model)
+    public async Task<IActionResult> Create(TimesheetEntryCreateViewModel model)
     {
+        var isAdmin = IsAdmin();
+        model.CanChooseEmployee = isAdmin;
+
+        if (!isAdmin)
+        {
+            model.EmployeeId = GetCurrentEmployeeId();
+            ModelState.Remove(nameof(model.EmployeeId));
+        }
+
+        var entries = ParseEntries(model.EntriesJson);
+        if (entries.Count == 0)
+        {
+            ModelState.AddModelError(nameof(model.EntriesJson), "Adiciona pelo menos um registo através do calendário.");
+        }
+
+        await ValidateCreateEntriesAsync(model.EmployeeId, entries);
+
+        if (!await context.Employees.AnyAsync(e => e.Id == model.EmployeeId && e.IsActive))
+        {
+            ModelState.AddModelError(nameof(model.EmployeeId), "Seleciona um colaborador ativo.");
+        }
+
         if (!ModelState.IsValid)
         {
-            await PopulateSelectsAsync(model);
+            await PopulateCreateSelectsAsync(model);
             return View(model);
         }
 
-        var entry = new TimesheetEntry
-        {
-            EmployeeId = model.EmployeeId,
-            ProjectId = model.ProjectId,
-            WorkDate = model.WorkDate.Date,
-            Hours = model.Hours,
-            Description = model.Description,
-            IsBillable = model.IsBillable
-        };
+        var timesheetEntries = entries.Select(entry => new TimesheetEntry
+            {
+                EmployeeId = model.EmployeeId,
+                ProjectId = entry.ProjectId,
+                WorkDate = entry.WorkDate.Date,
+                Hours = entry.Hours,
+                Description = entry.Description.Trim(),
+                IsBillable = entry.IsBillable
+            })
+            .ToList();
 
-        context.TimesheetEntries.Add(entry);
+        context.TimesheetEntries.AddRange(timesheetEntries);
         await context.SaveChangesAsync();
-        TempData["StatusMessage"] = "Registo criado com sucesso.";
+        TempData["StatusMessage"] = timesheetEntries.Count == 1
+            ? "Registo criado com sucesso."
+            : $"{timesheetEntries.Count} registos criados com sucesso.";
 
         return RedirectToAction(nameof(Index));
     }
@@ -116,16 +153,23 @@ public class TimesheetEntriesController(AppDbContext context) : Controller
             return NotFound();
         }
 
+        if (!CanManageEntry(entry.EmployeeId))
+        {
+            return Forbid();
+        }
+
+        var isAdmin = IsAdmin();
         var model = new TimesheetEntryFormViewModel
         {
             Id = entry.Id,
+            CanChooseEmployee = isAdmin,
             EmployeeId = entry.EmployeeId,
             ProjectId = entry.ProjectId,
             WorkDate = entry.WorkDate,
             Hours = entry.Hours,
             Description = entry.Description,
             IsBillable = entry.IsBillable,
-            Employees = await GetEmployeeOptionsAsync(entry.EmployeeId),
+            Employees = isAdmin ? await GetEmployeeOptionsAsync(entry.EmployeeId) : [],
             Projects = await GetProjectOptionsAsync(entry.ProjectId)
         };
 
@@ -141,6 +185,17 @@ public class TimesheetEntriesController(AppDbContext context) : Controller
             return NotFound();
         }
 
+        var isAdmin = IsAdmin();
+        model.CanChooseEmployee = isAdmin;
+
+        if (!isAdmin)
+        {
+            model.EmployeeId = GetCurrentEmployeeId();
+            ModelState.Remove(nameof(model.EmployeeId));
+        }
+
+        await ValidateSingleEntryAsync(model.EmployeeId, model.ProjectId, model.WorkDate, model.Hours, id);
+
         if (!ModelState.IsValid)
         {
             await PopulateSelectsAsync(model);
@@ -151,6 +206,11 @@ public class TimesheetEntriesController(AppDbContext context) : Controller
         if (entry is null)
         {
             return NotFound();
+        }
+
+        if (!CanManageEntry(entry.EmployeeId))
+        {
+            return Forbid();
         }
 
         entry.EmployeeId = model.EmployeeId;
@@ -176,6 +236,11 @@ public class TimesheetEntriesController(AppDbContext context) : Controller
             return NotFound();
         }
 
+        if (!CanManageEntry(entry.EmployeeId))
+        {
+            return Forbid();
+        }
+
         context.TimesheetEntries.Remove(entry);
         await context.SaveChangesAsync();
         TempData["StatusMessage"] = "Registo removido.";
@@ -185,8 +250,14 @@ public class TimesheetEntriesController(AppDbContext context) : Controller
 
     private async Task PopulateSelectsAsync(TimesheetEntryFormViewModel model)
     {
-        model.Employees = await GetEmployeeOptionsAsync(model.EmployeeId);
+        model.Employees = model.CanChooseEmployee ? await GetEmployeeOptionsAsync(model.EmployeeId) : [];
         model.Projects = await GetProjectOptionsAsync(model.ProjectId);
+    }
+
+    private async Task PopulateCreateSelectsAsync(TimesheetEntryCreateViewModel model)
+    {
+        model.Employees = model.CanChooseEmployee ? await GetEmployeeOptionsAsync(model.EmployeeId) : [];
+        model.Projects = await GetProjectCalendarOptionsAsync();
     }
 
     private async Task<List<SelectListItem>> GetEmployeeOptionsAsync(int? selectedId = null)
@@ -204,6 +275,23 @@ public class TimesheetEntriesController(AppDbContext context) : Controller
             .ToListAsync();
     }
 
+    private async Task<List<ProjectCalendarOptionViewModel>> GetProjectCalendarOptionsAsync()
+    {
+        return await context.Projects
+            .AsNoTracking()
+            .Where(p => p.IsActive)
+            .OrderBy(p => p.Name)
+            .Select(p => new ProjectCalendarOptionViewModel
+            {
+                Id = p.Id,
+                Name = p.Name,
+                ClientName = p.ClientName,
+                ColorHex = p.ColorHex,
+                AllowWeekendWork = p.AllowWeekendWork
+            })
+            .ToListAsync();
+    }
+
     private async Task<List<SelectListItem>> GetProjectOptionsAsync(int? selectedId = null)
     {
         return await context.Projects
@@ -217,5 +305,132 @@ public class TimesheetEntriesController(AppDbContext context) : Controller
                 Selected = p.Id == selectedId
             })
             .ToListAsync();
+    }
+
+    private bool IsAdmin()
+    {
+        return User.IsInRole("Admin");
+    }
+
+    private int GetCurrentEmployeeId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(value, out var employeeId) ? employeeId : 0;
+    }
+
+    private bool CanManageEntry(int employeeId)
+    {
+        return IsAdmin() || employeeId == GetCurrentEmployeeId();
+    }
+
+    private List<TimesheetEntryCreateInput> ParseEntries(string entriesJson)
+    {
+        if (string.IsNullOrWhiteSpace(entriesJson))
+        {
+            return [];
+        }
+
+        try
+        {
+            var entries = JsonSerializer.Deserialize<List<TimesheetEntryCreateInput>>(
+                entriesJson,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            return entries ?? [];
+        }
+        catch (JsonException)
+        {
+            ModelState.AddModelError(nameof(TimesheetEntryCreateViewModel.EntriesJson), "Os registos do calendário não são válidos.");
+            return [];
+        }
+    }
+
+    private async Task ValidateCreateEntriesAsync(int employeeId, List<TimesheetEntryCreateInput> entries)
+    {
+        var projects = await context.Projects
+            .AsNoTracking()
+            .Where(p => p.IsActive)
+            .ToDictionaryAsync(p => p.Id);
+
+        foreach (var entry in entries)
+        {
+            if (!projects.TryGetValue(entry.ProjectId, out var project))
+            {
+                ModelState.AddModelError(nameof(TimesheetEntryCreateViewModel.EntriesJson), "Um dos registos usa um projeto inválido.");
+                continue;
+            }
+
+            if (entry.Hours is < 0.25m or > 12m)
+            {
+                ModelState.AddModelError(nameof(TimesheetEntryCreateViewModel.EntriesJson), "Cada registo deve ter entre 0,25h e 12h.");
+            }
+
+            if (string.IsNullOrWhiteSpace(entry.Description))
+            {
+                ModelState.AddModelError(nameof(TimesheetEntryCreateViewModel.EntriesJson), "Cada registo precisa de descrição.");
+            }
+
+            if (IsWeekend(entry.WorkDate) && !project.AllowWeekendWork)
+            {
+                ModelState.AddModelError(
+                    nameof(TimesheetEntryCreateViewModel.EntriesJson),
+                    $"O projeto \"{project.Name}\" não permite registos ao fim de semana.");
+            }
+        }
+
+        foreach (var dayGroup in entries.GroupBy(e => e.WorkDate.Date))
+        {
+            var existingHours = await context.TimesheetEntries
+                .Where(e => e.EmployeeId == employeeId && e.WorkDate == dayGroup.Key)
+                .SumAsync(e => (decimal?)e.Hours) ?? 0m;
+
+            if (existingHours + dayGroup.Sum(e => e.Hours) > 12m)
+            {
+                ModelState.AddModelError(
+                    nameof(TimesheetEntryCreateViewModel.EntriesJson),
+                    $"O total de horas em {dayGroup.Key:dd/MM/yyyy} não pode ultrapassar 12h.");
+            }
+        }
+    }
+
+    private async Task ValidateSingleEntryAsync(int employeeId, int projectId, DateTime workDate, decimal hours, int? entryIdToIgnore)
+    {
+        var project = await context.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Id == projectId && p.IsActive);
+        if (project is null)
+        {
+            ModelState.AddModelError(nameof(TimesheetEntryFormViewModel.ProjectId), "Seleciona um projeto ativo.");
+            return;
+        }
+
+        if (hours is < 0.25m or > 12m)
+        {
+            ModelState.AddModelError(nameof(TimesheetEntryFormViewModel.Hours), "As horas devem estar entre 0,25h e 12h.");
+        }
+
+        if (IsWeekend(workDate) && !project.AllowWeekendWork)
+        {
+            ModelState.AddModelError(
+                nameof(TimesheetEntryFormViewModel.WorkDate),
+                $"O projeto \"{project.Name}\" não permite registos ao fim de semana.");
+        }
+
+        var existingHoursQuery = context.TimesheetEntries
+            .Where(e => e.EmployeeId == employeeId && e.WorkDate == workDate.Date);
+
+        if (entryIdToIgnore.HasValue)
+        {
+            existingHoursQuery = existingHoursQuery.Where(e => e.Id != entryIdToIgnore.Value);
+        }
+
+        var existingHours = await existingHoursQuery.SumAsync(e => (decimal?)e.Hours) ?? 0m;
+        if (existingHours + hours > 12m)
+        {
+            ModelState.AddModelError(nameof(TimesheetEntryFormViewModel.Hours), "O total de horas neste dia não pode ultrapassar 12h.");
+        }
+    }
+
+    private static bool IsWeekend(DateTime date)
+    {
+        return date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
     }
 }

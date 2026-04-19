@@ -29,6 +29,10 @@ dotnet run --project Timesheets.Web
 
 - Dashboard com métricas da semana e do mês
 - Botão simples "Novo registo" no dashboard e na navegação
+- Login por colaborador com área de gestão apenas para admin
+- Calendário na criação de horas com modal por dia
+- Regras por projeto para permitir ou bloquear trabalho ao fim de semana
+- Limite máximo de 12h por registo/dia
 - Gestão de colaboradores
 - Gestão de projetos
 - Registo, edição, filtro e remoção de horas
@@ -37,3 +41,9 @@ dotnet run --project Timesheets.Web
 ## Base de dados
 
 A app aplica migrations automaticamente no startup. A connection string por defeito está em [appsettings.json](/Users/antonyferreira/Documents/New project/Timesheets.Web/appsettings.json).
+
+## Utilizadores iniciais
+
+- Admin: `admin@timesheets.local` / `admin123`
+- Teste: `teste@teste.com` / `teste`
+- Colaboradores seed: usam a password `password123`

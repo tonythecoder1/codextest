@@ -19,6 +19,7 @@
             <tr>
                 <th>Projeto</th>
                 <th>Cliente</th>
+                <th>Fim de semana</th>
                 <th>Estado</th>
                 <th class="text-end">Ações</th>
             </tr>
@@ -32,6 +33,11 @@
                     @project.Name
                 </td>
                 <td>@project.ClientName</td>
+                <td>
+                    <span class="status-pill @(project.AllowWeekendWork ? "status-active" : "status-muted")">
+                        @(project.AllowWeekendWork ? "Permitido" : "Bloqueado")
+                    </span>
+                </td>
                 <td>
                     <span class="status-pill @(project.IsActive ? "status-active" : "status-muted")">
                         @(project.IsActive ? "Ativo" : "Inativo")

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Timesheets.Web.Models;
 
@@ -24,6 +25,17 @@ public class Employee
 
     [Display(Name = "Ativo")]
     public bool IsActive { get; set; } = true;
+
+    [Required]
+    public string PasswordHash { get; set; } = string.Empty;
+
+    [Display(Name = "Administrador")]
+    public bool IsAdmin { get; set; }
+
+    [NotMapped]
+    [DataType(DataType.Password)]
+    [Display(Name = "Password")]
+    public string? Password { get; set; }
 
     public ICollection<TimesheetEntry> TimesheetEntries { get; set; } = new List<TimesheetEntry>();
 }

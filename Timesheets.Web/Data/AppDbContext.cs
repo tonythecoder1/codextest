@@ -18,6 +18,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.FullName).HasMaxLength(120);
             entity.Property(e => e.Email).HasMaxLength(160);
             entity.Property(e => e.JobTitle).HasMaxLength(120);
+            entity.Property(e => e.PasswordHash).HasMaxLength(256);
             entity.HasIndex(e => e.Email).IsUnique();
         });
 

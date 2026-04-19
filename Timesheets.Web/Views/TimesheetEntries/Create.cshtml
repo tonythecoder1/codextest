@@ -1,27 +1,323 @@
-@model TimesheetEntryFormViewModel
+@using System.Text.Json
+@model TimesheetEntryCreateViewModel
 
 @{
     ViewData["Title"] = "Novo registo";
+    var projectsJson = JsonSerializer.Serialize(Model.Projects);
 }
 
 <section class="page-header">
     <div>
         <p class="eyebrow">Operação</p>
         <h1>Novo registo de horas</h1>
-        <p class="page-intro">Preenche os campos essenciais e mantém o registo diário leve e rápido.</p>
+        <p class="page-intro">Clica num dia do calendário e adiciona horas, projeto e descrição no modal.</p>
     </div>
 </section>
 
 <div class="card-surface form-shell">
-    <form asp-action="Create" method="post">
-        <partial name="_Form" model="Model" />
+    <form asp-action="Create" method="post" id="timesheetCreateForm">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        @if (Model.CanChooseEmployee)
+        {
+            <div class="mb-3">
+                <label asp-for="EmployeeId" class="form-label"></label>
+                <select asp-for="EmployeeId" asp-items="Model.Employees" class="form-select">
+                    <option value="">Seleciona um colaborador</option>
+                </select>
+                <span asp-validation-for="EmployeeId" class="text-danger"></span>
+            </div>
+        }
+        else
+        {
+            <input asp-for="EmployeeId" type="hidden" />
+        }
+
+        <input asp-for="EntriesJson" type="hidden" id="entriesJsonInput" />
+        <span asp-validation-for="EntriesJson" class="text-danger"></span>
+
+        <div class="calendar-picker">
+            <div class="calendar-toolbar">
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-calendar-prev>Anterior</button>
+                <strong data-calendar-title></strong>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-calendar-next>Seguinte</button>
+            </div>
+            <div class="calendar-weekdays">
+                <span>Seg</span>
+                <span>Ter</span>
+                <span>Qua</span>
+                <span>Qui</span>
+                <span>Sex</span>
+                <span>Sáb</span>
+                <span>Dom</span>
+            </div>
+            <div class="calendar-days" data-calendar-days></div>
+            <p class="form-hint mt-3">Sábados e domingos só ficam disponíveis quando existe pelo menos um projeto que permite trabalho ao fim de semana.</p>
+        </div>
+
+        <div class="pending-entry-shell">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Pré-visualização</p>
+                    <h2>Registos a guardar</h2>
+                </div>
+            </div>
+            <div class="pending-entry-list" data-pending-entries>
+                <p class="empty-state mb-0">Ainda não adicionaste nenhum registo. Clica num dia do calendário para começar.</p>
+            </div>
+        </div>
+
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary simple-action-button">Guardar registo</button>
+            <button type="submit" class="btn btn-primary simple-action-button" data-submit-entries disabled>Guardar registos</button>
             <a asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+
+        <div class="modal fade" id="entryModal" tabindex="-1" aria-labelledby="entryModalTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content entry-modal">
+                    <div class="modal-header">
+                        <div>
+                            <p class="eyebrow mb-1">Novo registo</p>
+                            <h2 class="modal-title h5" id="entryModalTitle">Adicionar horas</h2>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="modalWorkDate" />
+                        <div class="mb-3">
+                            <label for="modalProjectId" class="form-label">Projeto</label>
+                            <select id="modalProjectId" class="form-select" required></select>
+                            <p class="form-hint" data-weekend-project-hint hidden>Este dia é fim de semana. Só aparecem projetos que permitem fim de semana.</p>
+                        </div>
+                        <div class="mb-3">
+                            <label for="modalHours" class="form-label">Horas</label>
+                            <input id="modalHours" class="form-control" type="number" min="0.25" max="12" step="0.25" />
+                            <p class="form-hint">Máximo permitido: 12h por dia.</p>
+                        </div>
+                        <div class="mb-3">
+                            <label for="modalDescription" class="form-label">Descrição</label>
+                            <textarea id="modalDescription" class="form-control" rows="3"></textarea>
+                        </div>
+                        <div class="form-check">
+                            <input id="modalIsBillable" class="form-check-input" type="checkbox" checked />
+                            <label for="modalIsBillable" class="form-check-label">Faturável</label>
+                        </div>
+                        <div class="alert alert-danger mt-3 mb-0" data-modal-error hidden></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" data-add-entry>Adicionar</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </form>
 </div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const picker = document.querySelector(".calendar-picker");
+            if (!picker) {
+                return;
+            }
+
+            const projects = @Html.Raw(projectsJson);
+            const daysContainer = picker.querySelector("[data-calendar-days]");
+            const title = picker.querySelector("[data-calendar-title]");
+            const entriesInput = document.getElementById("entriesJsonInput");
+            const pendingEntries = document.querySelector("[data-pending-entries]");
+            const submitButton = document.querySelector("[data-submit-entries]");
+            const modalElement = document.getElementById("entryModal");
+            const modal = new bootstrap.Modal(modalElement);
+            const modalTitle = document.getElementById("entryModalTitle");
+            const modalWorkDate = document.getElementById("modalWorkDate");
+            const modalProjectId = document.getElementById("modalProjectId");
+            const modalHours = document.getElementById("modalHours");
+            const modalDescription = document.getElementById("modalDescription");
+            const modalIsBillable = document.getElementById("modalIsBillable");
+            const modalError = document.querySelector("[data-modal-error]");
+            const weekendHint = document.querySelector("[data-weekend-project-hint]");
+            const addEntryButton = document.querySelector("[data-add-entry]");
+            const entries = entriesInput.value ? JSON.parse(entriesInput.value) : [];
+            let visibleDate = new Date();
+
+            const hasWeekendProjects = projects.some((project) => project.AllowWeekendWork);
+
+            const formatDate = (date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, "0");
+                const day = String(date.getDate()).padStart(2, "0");
+                return `${year}-${month}-${day}`;
+            };
+
+            const parseDate = (value) => new Date(`${value}T00:00:00`);
+            const isWeekend = (date) => date.getDay() === 0 || date.getDay() === 6;
+            const displayDate = (value) => parseDate(value).toLocaleDateString("pt-PT", {
+                weekday: "short",
+                day: "2-digit",
+                month: "short",
+                year: "numeric"
+            });
+
+            const syncEntries = () => {
+                entriesInput.value = JSON.stringify(entries);
+                submitButton.disabled = entries.length === 0;
+                pendingEntries.innerHTML = "";
+
+                if (entries.length === 0) {
+                    pendingEntries.innerHTML = '<p class="empty-state mb-0">Ainda não adicionaste nenhum registo. Clica num dia do calendário para começar.</p>';
+                    return;
+                }
+
+                entries
+                    .slice()
+                    .sort((a, b) => a.workDate.localeCompare(b.workDate))
+                    .forEach((entry) => {
+                        const project = projects.find((item) => item.Id === entry.projectId);
+                        const card = document.createElement("article");
+                        card.className = "pending-entry-item";
+                        card.innerHTML = `
+                            <div>
+                                <strong>${displayDate(entry.workDate)}</strong>
+                                <p><span class="project-dot" style="background:${project?.ColorHex || "#0F766E"}"></span>${project?.Name || "Projeto"} · ${entry.hours}h</p>
+                                <p>${entry.description}</p>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger">Remover</button>
+                        `;
+                        card.querySelector("button").addEventListener("click", () => {
+                            const index = entries.indexOf(entry);
+                            entries.splice(index, 1);
+                            syncEntries();
+                            renderCalendar();
+                        });
+                        pendingEntries.appendChild(card);
+                    });
+            };
+
+            const populateProjectOptions = (date) => {
+                const weekend = isWeekend(date);
+                modalProjectId.innerHTML = '<option value="">Seleciona um projeto</option>';
+                projects
+                    .filter((project) => !weekend || project.AllowWeekendWork)
+                    .forEach((project) => {
+                        const option = document.createElement("option");
+                        option.value = project.Id;
+                        option.textContent = `${project.Name} (${project.ClientName})`;
+                        modalProjectId.appendChild(option);
+                    });
+
+                weekendHint.hidden = !weekend;
+            };
+
+            const openModal = (date) => {
+                modalError.hidden = true;
+                modalError.textContent = "";
+                modalWorkDate.value = formatDate(date);
+                modalTitle.textContent = `Adicionar horas em ${displayDate(modalWorkDate.value)}`;
+                modalHours.value = "";
+                modalDescription.value = "";
+                modalIsBillable.checked = true;
+                populateProjectOptions(date);
+                modal.show();
+            };
+
+            const renderCalendar = () => {
+                daysContainer.innerHTML = "";
+                title.textContent = visibleDate.toLocaleDateString("pt-PT", { month: "long", year: "numeric" });
+
+                const firstDay = new Date(visibleDate.getFullYear(), visibleDate.getMonth(), 1);
+                const startOffset = (firstDay.getDay() + 6) % 7;
+                const gridStart = new Date(firstDay);
+                gridStart.setDate(firstDay.getDate() - startOffset);
+
+                for (let index = 0; index < 42; index += 1) {
+                    const day = new Date(gridStart);
+                    day.setDate(gridStart.getDate() + index);
+                    const value = formatDate(day);
+                    const weekend = isWeekend(day);
+                    const disabled = weekend && !hasWeekendProjects;
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.className = "calendar-day";
+                    button.textContent = day.getDate();
+
+                    if (day.getMonth() !== visibleDate.getMonth()) {
+                        button.classList.add("is-muted");
+                    }
+
+                    if (entries.some((entry) => entry.workDate === value)) {
+                        button.classList.add("has-entry");
+                    }
+
+                    if (disabled) {
+                        button.classList.add("is-disabled");
+                        button.disabled = true;
+                        button.title = "Sem projetos permitidos ao fim de semana";
+                    } else {
+                        button.addEventListener("click", () => openModal(day));
+                    }
+
+                    daysContainer.appendChild(button);
+                }
+            };
+
+            addEntryButton.addEventListener("click", () => {
+                const selectedProjectId = Number(modalProjectId.value);
+                const selectedDate = parseDate(modalWorkDate.value);
+                const selectedProject = projects.find((project) => project.Id === selectedProjectId);
+                const hours = Number(modalHours.value);
+                const description = modalDescription.value.trim();
+                const existingDayHours = entries
+                    .filter((entry) => entry.workDate === modalWorkDate.value)
+                    .reduce((total, entry) => total + Number(entry.hours), 0);
+
+                modalError.hidden = true;
+                modalError.textContent = "";
+
+                if (!selectedProject) {
+                    modalError.textContent = "Seleciona um projeto.";
+                } else if (isWeekend(selectedDate) && !selectedProject.AllowWeekendWork) {
+                    modalError.textContent = "Este projeto não permite trabalho ao fim de semana.";
+                } else if (!Number.isFinite(hours) || hours < 0.25 || hours > 12) {
+                    modalError.textContent = "As horas têm de estar entre 0,25h e 12h.";
+                } else if (existingDayHours + hours > 12) {
+                    modalError.textContent = "O total deste dia não pode ultrapassar 12h.";
+                } else if (!description) {
+                    modalError.textContent = "Escreve uma descrição.";
+                }
+
+                if (modalError.textContent) {
+                    modalError.hidden = false;
+                    return;
+                }
+
+                entries.push({
+                    workDate: modalWorkDate.value,
+                    projectId: selectedProjectId,
+                    hours,
+                    description,
+                    isBillable: modalIsBillable.checked
+                });
+
+                syncEntries();
+                renderCalendar();
+                modal.hide();
+            });
+
+            picker.querySelector("[data-calendar-prev]").addEventListener("click", () => {
+                visibleDate = new Date(visibleDate.getFullYear(), visibleDate.getMonth() - 1, 1);
+                renderCalendar();
+            });
+
+            picker.querySelector("[data-calendar-next]").addEventListener("click", () => {
+                visibleDate = new Date(visibleDate.getFullYear(), visibleDate.getMonth() + 1, 1);
+                renderCalendar();
+            });
+
+            syncEntries();
+            renderCalendar();
+        })();
+    </script>
 }

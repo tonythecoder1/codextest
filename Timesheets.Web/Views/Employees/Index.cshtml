@@ -20,6 +20,7 @@
                 <th>Nome</th>
                 <th>Função</th>
                 <th>Email</th>
+                <th>Perfil</th>
                 <th>Estado</th>
                 <th class="text-end">Ações</th>
             </tr>
@@ -31,6 +32,11 @@
                 <td class="fw-semibold">@employee.FullName</td>
                 <td>@employee.JobTitle</td>
                 <td>@employee.Email</td>
+                <td>
+                    <span class="status-pill @(employee.IsAdmin ? "status-admin" : "status-muted")">
+                        @(employee.IsAdmin ? "Admin" : "Colaborador")
+                    </span>
+                </td>
                 <td>
                     <span class="status-pill @(employee.IsActive ? "status-active" : "status-muted")">
                         @(employee.IsActive ? "Ativo" : "Inativo")

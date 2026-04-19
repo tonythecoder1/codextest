@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Timesheets.Web.Data;
@@ -5,6 +6,7 @@ using Timesheets.Web.Models;
 
 namespace Timesheets.Web.Controllers;
 
+[Authorize(Roles = "Admin")]
 public class ProjectsController(AppDbContext context) : Controller
 {
     public async Task<IActionResult> Index()

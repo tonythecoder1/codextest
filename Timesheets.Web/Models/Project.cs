@@ -24,5 +24,8 @@ public class Project
     [Display(Name = "Ativo")]
     public bool IsActive { get; set; } = true;
 
+    [Display(Name = "Permite fim de semana")]
+    public bool AllowWeekendWork { get; set; }
+
     public ICollection<TimesheetEntry> TimesheetEntries { get; set; } = new List<TimesheetEntry>();
 }
