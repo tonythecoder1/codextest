@@ -1,0 +1,27 @@
+@model TimesheetEntryFormViewModel
+
+@{
+    ViewData["Title"] = "Novo registo";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Operação</p>
+        <h1>Novo registo de horas</h1>
+        <p class="page-intro">Preenche os campos essenciais e mantém o registo diário leve e rápido.</p>
+    </div>
+</section>
+
+<div class="card-surface form-shell">
+    <form asp-action="Create" method="post">
+        <partial name="_Form" model="Model" />
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary simple-action-button">Guardar registo</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

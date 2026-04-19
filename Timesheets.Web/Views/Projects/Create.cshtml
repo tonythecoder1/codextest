@@ -1,0 +1,27 @@
+@model Project
+
+@{
+    ViewData["Title"] = "Novo projeto";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Portefólio</p>
+        <h1>Novo projeto</h1>
+        <p class="page-intro">Cria um projeto e atribui-lhe uma cor para leitura rápida na listagem.</p>
+    </div>
+</section>
+
+<div class="card-surface form-shell">
+    <form asp-action="Create" method="post">
+        <partial name="_Form" model="Model" />
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

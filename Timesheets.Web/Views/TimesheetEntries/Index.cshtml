@@ -1,0 +1,106 @@
+@model TimesheetEntriesIndexViewModel
+
+@{
+    ViewData["Title"] = "Registos de horas";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Operação</p>
+        <h1>Registos de horas</h1>
+        <p class="page-intro">Filtra rapidamente por colaborador, projeto ou período para analisar o trabalho da equipa.</p>
+    </div>
+    <a class="btn btn-primary simple-action-button" asp-action="Create">Novo registo</a>
+</section>
+
+<div class="card-surface filter-shell">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label" asp-for="EmployeeId">Colaborador</label>
+            <select asp-for="EmployeeId" asp-items="Model.Employees" class="form-select">
+                <option value="">Todos</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" asp-for="ProjectId">Projeto</label>
+            <select asp-for="ProjectId" asp-items="Model.Projects" class="form-select">
+                <option value="">Todos</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label" asp-for="FromDate">De</label>
+            <input asp-for="FromDate" class="form-control" type="date" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label" asp-for="ToDate">Até</label>
+            <input asp-for="ToDate" class="form-control" type="date" />
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+            <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Limpar</a>
+        </div>
+    </form>
+</div>
+
+<section class="stats-grid compact-stats">
+    <article class="stat-card">
+        <span class="stat-label">Total de horas</span>
+        <strong>@Model.TotalHours.ToString("0.##")h</strong>
+    </article>
+    <article class="stat-card">
+        <span class="stat-label">Registos encontrados</span>
+        <strong>@Model.EntryCount</strong>
+    </article>
+</section>
+
+<div class="card-surface">
+    @if (Model.Entries.Count == 0)
+    {
+        <p class="empty-state mb-0">Não existem registos com estes filtros.</p>
+    }
+    else
+    {
+        <table class="table app-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Colaborador</th>
+                    <th>Projeto</th>
+                    <th>Descrição</th>
+                    <th>Horas</th>
+                    <th>Tipo</th>
+                    <th class="text-end">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var entry in Model.Entries)
+            {
+                <tr>
+                    <td>@entry.WorkDate.ToString("dd/MM/yyyy")</td>
+                    <td class="fw-semibold">@entry.EmployeeName</td>
+                    <td>
+                        <span class="project-dot" style="background:@entry.ProjectColorHex"></span>
+                        @entry.ProjectName
+                    </td>
+                    <td>@entry.Description</td>
+                    <td>@entry.Hours.ToString("0.##")h</td>
+                    <td>
+                        <span class="status-pill @(entry.IsBillable ? "status-active" : "status-muted")">
+                            @(entry.IsBillable ? "Faturável" : "Interno")
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <div class="table-actions">
+                            <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@entry.Id">Editar</a>
+                            <form asp-action="Delete" asp-route-id="@entry.Id" method="post" onsubmit="return confirm('Remover este registo?');">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Apagar</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</div>

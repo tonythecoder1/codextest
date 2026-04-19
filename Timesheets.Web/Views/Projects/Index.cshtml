@@ -1,0 +1,47 @@
+@model IReadOnlyList<Project>
+
+@{
+    ViewData["Title"] = "Projetos";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Portefólio</p>
+        <h1>Projetos</h1>
+        <p class="page-intro">Organiza os clientes e iniciativas onde a equipa regista horas.</p>
+    </div>
+    <a class="btn btn-primary" asp-action="Create">Novo projeto</a>
+</section>
+
+<div class="card-surface">
+    <table class="table app-table align-middle mb-0">
+        <thead>
+            <tr>
+                <th>Projeto</th>
+                <th>Cliente</th>
+                <th>Estado</th>
+                <th class="text-end">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var project in Model)
+        {
+            <tr>
+                <td class="fw-semibold">
+                    <span class="project-dot" style="background:@project.ColorHex"></span>
+                    @project.Name
+                </td>
+                <td>@project.ClientName</td>
+                <td>
+                    <span class="status-pill @(project.IsActive ? "status-active" : "status-muted")">
+                        @(project.IsActive ? "Ativo" : "Inativo")
+                    </span>
+                </td>
+                <td class="text-end">
+                    <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@project.Id">Editar</a>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

@@ -1,0 +1,46 @@
+@model IReadOnlyList<Employee>
+
+@{
+    ViewData["Title"] = "Colaboradores";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Equipa</p>
+        <h1>Colaboradores</h1>
+        <p class="page-intro">Mantém a equipa atualizada para facilitar o registo de horas por pessoa.</p>
+    </div>
+    <a class="btn btn-primary" asp-action="Create">Novo colaborador</a>
+</section>
+
+<div class="card-surface">
+    <table class="table app-table align-middle mb-0">
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Função</th>
+                <th>Email</th>
+                <th>Estado</th>
+                <th class="text-end">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var employee in Model)
+        {
+            <tr>
+                <td class="fw-semibold">@employee.FullName</td>
+                <td>@employee.JobTitle</td>
+                <td>@employee.Email</td>
+                <td>
+                    <span class="status-pill @(employee.IsActive ? "status-active" : "status-muted")">
+                        @(employee.IsActive ? "Ativo" : "Inativo")
+                    </span>
+                </td>
+                <td class="text-end">
+                    <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@employee.Id">Editar</a>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

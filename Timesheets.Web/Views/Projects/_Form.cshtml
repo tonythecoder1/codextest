@@ -1,0 +1,27 @@
+@model Project
+
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
+        <label asp-for="ClientName" class="form-label"></label>
+        <input asp-for="ClientName" class="form-control" />
+        <span asp-validation-for="ClientName" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="ColorHex" class="form-label"></label>
+        <input asp-for="ColorHex" class="form-control form-control-color p-1" type="color" />
+        <span asp-validation-for="ColorHex" class="text-danger"></span>
+    </div>
+    <div class="col-12">
+        <div class="form-check mt-2">
+            <input asp-for="IsActive" class="form-check-input" />
+            <label asp-for="IsActive" class="form-check-label"></label>
+        </div>
+    </div>
+</div>

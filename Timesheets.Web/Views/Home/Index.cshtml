@@ -1,8 +1,103 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@model DashboardViewModel
+
+@{
+    ViewData["Title"] = "Dashboard";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<section class="hero-panel">
+    <div>
+        <p class="eyebrow">Timesheets</p>
+        <h1>Visão rápida das horas da equipa.</h1>
+        <p class="hero-copy">Uma app simples para registar horas, acompanhar carga mensal e manter projetos e equipa organizados.</p>
+    </div>
+    <div class="hero-actions">
+        <a class="btn btn-primary simple-action-button" asp-controller="TimesheetEntries" asp-action="Create">Novo registo</a>
+        <a class="btn btn-outline-secondary" asp-controller="TimesheetEntries" asp-action="Index">Ver registos</a>
+    </div>
+</section>
+
+<section class="stats-grid">
+    <article class="stat-card">
+        <span class="stat-label">Colaboradores ativos</span>
+        <strong>@Model.ActiveEmployees</strong>
+    </article>
+    <article class="stat-card">
+        <span class="stat-label">Projetos ativos</span>
+        <strong>@Model.ActiveProjects</strong>
+    </article>
+    <article class="stat-card">
+        <span class="stat-label">Horas esta semana</span>
+        <strong>@Model.HoursThisWeek.ToString("0.##")h</strong>
+    </article>
+    <article class="stat-card">
+        <span class="stat-label">Horas este mês</span>
+        <strong>@Model.HoursThisMonth.ToString("0.##")h</strong>
+    </article>
+</section>
+
+<section class="dashboard-grid">
+    <div class="card-surface">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Atividade</p>
+                <h2>Últimos registos</h2>
+            </div>
+            <a asp-controller="TimesheetEntries" asp-action="Index" class="btn btn-sm btn-outline-secondary">Abrir tudo</a>
+        </div>
+
+        @if (Model.RecentEntries.Count == 0)
+        {
+            <p class="empty-state">Ainda não existem registos. Cria o primeiro para começar.</p>
+        }
+        else
+        {
+            <div class="entry-list">
+            @foreach (var entry in Model.RecentEntries)
+            {
+                <article class="entry-item">
+                    <div>
+                        <div class="entry-topline">
+                            <strong>@entry.EmployeeName</strong>
+                            <span class="status-pill @(entry.IsBillable ? "status-active" : "status-muted")">
+                                @(entry.IsBillable ? "Faturável" : "Interno")
+                            </span>
+                        </div>
+                        <p class="entry-meta">@entry.ProjectName · @entry.WorkDate.ToString("dd/MM/yyyy")</p>
+                        <p class="entry-description">@entry.Description</p>
+                    </div>
+                    <strong class="entry-hours">@entry.Hours.ToString("0.##")h</strong>
+                </article>
+            }
+            </div>
+        }
+    </div>
+
+    <div class="card-surface">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Capacidade</p>
+                <h2>Horas por colaborador</h2>
+            </div>
+        </div>
+
+        @if (Model.EmployeeHoursThisMonth.Count == 0)
+        {
+            <p class="empty-state">Sem horas registadas este mês.</p>
+        }
+        else
+        {
+            <div class="summary-list">
+            @foreach (var summary in Model.EmployeeHoursThisMonth)
+            {
+                <article class="summary-item">
+                    <div>
+                        <strong>@summary.EmployeeName</strong>
+                        <p>@summary.BillableHours.ToString("0.##")h faturáveis</p>
+                    </div>
+                    <strong>@summary.TotalHours.ToString("0.##")h</strong>
+                </article>
+            }
+            </div>
+        }
+    </div>
+</section>

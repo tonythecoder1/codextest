@@ -1,0 +1,27 @@
+@model Employee
+
+@{
+    ViewData["Title"] = "Novo colaborador";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Equipa</p>
+        <h1>Novo colaborador</h1>
+        <p class="page-intro">Adiciona uma pessoa à equipa para começar a registar horas.</p>
+    </div>
+</section>
+
+<div class="card-surface form-shell">
+    <form asp-action="Create" method="post">
+        <partial name="_Form" model="Model" />
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
