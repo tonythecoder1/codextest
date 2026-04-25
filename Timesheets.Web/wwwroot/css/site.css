@@ -454,6 +454,32 @@ body {
   box-shadow: var(--shadow);
 }
 
+.modal {
+  z-index: 1080;
+  overflow-y: auto;
+}
+
+.modal-backdrop {
+  z-index: 1070;
+}
+
+.modal-dialog {
+  margin: 1.25rem auto;
+}
+
+.modal-dialog-scrollable .modal-content {
+  max-height: calc(100vh - 2.5rem);
+}
+
+.modal-dialog-scrollable .modal-body {
+  overflow-y: auto;
+}
+
+.modal-open {
+  overflow: auto;
+  padding-right: 0 !important;
+}
+
 .btn-primary {
   border-color: var(--accent);
   background: var(--accent);

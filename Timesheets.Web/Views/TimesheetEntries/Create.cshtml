@@ -71,47 +71,47 @@
             <button type="submit" class="btn btn-primary simple-action-button" data-submit-entries disabled>Guardar registos</button>
             <a asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
         </div>
+    </form>
+</div>
 
-        <div class="modal fade" id="entryModal" tabindex="-1" aria-labelledby="entryModalTitle" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content entry-modal">
-                    <div class="modal-header">
-                        <div>
-                            <p class="eyebrow mb-1">Novo registo</p>
-                            <h2 class="modal-title h5" id="entryModalTitle">Adicionar horas</h2>
-                        </div>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                    </div>
-                    <div class="modal-body">
-                        <input type="hidden" id="modalWorkDate" />
-                        <div class="mb-3">
-                            <label for="modalProjectId" class="form-label">Projeto</label>
-                            <select id="modalProjectId" class="form-select" required></select>
-                            <p class="form-hint" data-weekend-project-hint hidden>Este dia é fim de semana. Só aparecem projetos que permitem fim de semana.</p>
-                        </div>
-                        <div class="mb-3">
-                            <label for="modalHours" class="form-label">Horas</label>
-                            <input id="modalHours" class="form-control" type="number" min="0.25" max="12" step="0.25" />
-                            <p class="form-hint">Máximo permitido: 12h por dia.</p>
-                        </div>
-                        <div class="mb-3">
-                            <label for="modalDescription" class="form-label">Descrição</label>
-                            <textarea id="modalDescription" class="form-control" rows="3"></textarea>
-                        </div>
-                        <div class="form-check">
-                            <input id="modalIsBillable" class="form-check-input" type="checkbox" checked />
-                            <label for="modalIsBillable" class="form-check-label">Faturável</label>
-                        </div>
-                        <div class="alert alert-danger mt-3 mb-0" data-modal-error hidden></div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="button" class="btn btn-primary" data-add-entry>Adicionar</button>
-                    </div>
+<div class="modal fade" id="entryModal" tabindex="-1" aria-labelledby="entryModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content entry-modal">
+            <div class="modal-header">
+                <div>
+                    <p class="eyebrow mb-1">Novo registo</p>
+                    <h2 class="modal-title h5" id="entryModalTitle">Adicionar horas</h2>
                 </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modalWorkDate" />
+                <div class="mb-3">
+                    <label for="modalProjectId" class="form-label">Projeto</label>
+                    <select id="modalProjectId" class="form-select" required></select>
+                    <p class="form-hint" data-weekend-project-hint hidden>Este dia é fim de semana. Só aparecem projetos que permitem fim de semana.</p>
+                </div>
+                <div class="mb-3">
+                    <label for="modalHours" class="form-label">Horas</label>
+                    <input id="modalHours" class="form-control" type="number" min="0.25" max="12" step="0.25" />
+                    <p class="form-hint">Máximo permitido: 12h por dia.</p>
+                </div>
+                <div class="mb-3">
+                    <label for="modalDescription" class="form-label">Descrição</label>
+                    <textarea id="modalDescription" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="form-check">
+                    <input id="modalIsBillable" class="form-check-input" type="checkbox" checked />
+                    <label for="modalIsBillable" class="form-check-label">Faturável</label>
+                </div>
+                <div class="alert alert-danger mt-3 mb-0" data-modal-error hidden></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" data-add-entry>Adicionar</button>
             </div>
         </div>
-    </form>
+    </div>
 </div>
 
 @section Scripts {
@@ -222,6 +222,10 @@
                 populateProjectOptions(date);
                 modal.show();
             };
+
+            modalElement.addEventListener("shown.bs.modal", () => {
+                modalProjectId.focus();
+            });
 
             const renderCalendar = () => {
                 daysContainer.innerHTML = "";
