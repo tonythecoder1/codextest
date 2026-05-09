@@ -2,6 +2,11 @@ namespace Timesheets.Web.ViewModels;
 
 public class DashboardViewModel
 {
+    public bool IsAdmin { get; set; }
+    public string PrimaryStatLabel { get; set; } = "Colaboradores ativos";
+    public string SecondaryStatLabel { get; set; } = "Projetos ativos";
+    public string SummarySectionTitle { get; set; } = "Horas por colaborador";
+    public string SummaryEyebrow { get; set; } = "Capacidade";
     public int ActiveEmployees { get; set; }
     public int ActiveProjects { get; set; }
     public decimal HoursThisWeek { get; set; }

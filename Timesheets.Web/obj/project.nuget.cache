@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "obr4Uh+Xg+E=",
+  "dgSpecHash": "EukTwyFofxE=",
   "success": true,
   "projectFilePath": "/Users/antonyferreira/Documents/New project/Timesheets.Web/Timesheets.Web.csproj",
   "expectedPackageFiles": [
@@ -30,6 +30,7 @@
     "/Users/antonyferreira/.nuget/packages/mono.texttemplating/2.2.1/mono.texttemplating.2.2.1.nupkg.sha512",
     "/Users/antonyferreira/.nuget/packages/npgsql/8.0.3/npgsql.8.0.3.nupkg.sha512",
     "/Users/antonyferreira/.nuget/packages/npgsql.entityframeworkcore.postgresql/8.0.4/npgsql.entityframeworkcore.postgresql.8.0.4.nupkg.sha512",
+    "/Users/antonyferreira/.nuget/packages/questpdf/2026.2.4/questpdf.2026.2.4.nupkg.sha512",
     "/Users/antonyferreira/.nuget/packages/system.codedom/4.4.0/system.codedom.4.4.0.nupkg.sha512",
     "/Users/antonyferreira/.nuget/packages/system.collections.immutable/6.0.0/system.collections.immutable.6.0.0.nupkg.sha512",
     "/Users/antonyferreira/.nuget/packages/system.composition/6.0.0/system.composition.6.0.0.nupkg.sha512",

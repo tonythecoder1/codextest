@@ -7,10 +7,15 @@
 <section class="page-header">
     <div>
         <p class="eyebrow">Operação</p>
-        <h1>Registos de horas</h1>
-        <p class="page-intro">Filtra rapidamente por colaborador, projeto ou período para analisar o trabalho da equipa.</p>
+        <h1>@(Model.CanChooseEmployee ? "Registos de horas" : "As minhas horas")</h1>
+        <p class="page-intro">@(Model.CanChooseEmployee
+            ? "Filtra rapidamente por colaborador, projeto ou período para analisar o trabalho da equipa."
+            : "Consulta os teus registos por projeto e período.")</p>
     </div>
-    <a class="btn btn-primary simple-action-button" asp-action="Create">Novo registo</a>
+    <div class="page-actions">
+        <a class="btn btn-primary simple-action-button" asp-action="Create">Novo registo</a>
+        <a class="btn btn-outline-secondary" asp-action="ReportPdf" asp-route-employeeId="@Model.EmployeeId" asp-route-projectId="@Model.ProjectId" asp-route-fromDate="@Model.FromDate?.ToString("yyyy-MM-dd")" asp-route-toDate="@Model.ToDate?.ToString("yyyy-MM-dd")">PDF relatório</a>
+    </div>
 </section>
 
 <div class="card-surface filter-shell">
@@ -49,6 +54,35 @@
     </form>
 </div>
 
+<div class="card-surface filter-shell">
+    <form method="get" asp-action="MonthlyPdf" class="row g-3 align-items-end">
+        @if (Model.CanChooseEmployee)
+        {
+            <input type="hidden" name="employeeId" value="@Model.EmployeeId" />
+        }
+        <div class="col-md-4">
+            <label class="form-label" for="month">Mês completo</label>
+            <select id="month" name="month" class="form-select" @(Model.CanGenerateMonthlyPdf ? null : "disabled")>
+                @if (Model.CompletedMonths.Count == 0)
+                {
+                    <option value="">Sem meses disponíveis</option>
+                }
+                else
+                {
+                    @foreach (var month in Model.CompletedMonths)
+                    {
+                        <option value="@month.Value" selected="@(month.Value == Model.SelectedMonth ? "selected" : null)">@month.Text</option>
+                    }
+                }
+            </select>
+            <p class="form-hint">@Model.MonthlyPdfHelpText</p>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary w-100" @(Model.CanGenerateMonthlyPdf ? null : "disabled")>PDF mensal</button>
+        </div>
+    </form>
+</div>
+
 <section class="stats-grid compact-stats">
     <article class="stat-card">
         <span class="stat-label">Total de horas</span>
@@ -71,7 +105,10 @@
             <thead>
                 <tr>
                     <th>Data</th>
-                    <th>Colaborador</th>
+                    @if (Model.CanChooseEmployee)
+                    {
+                        <th>Colaborador</th>
+                    }
                     <th>Projeto</th>
                     <th>Descrição</th>
                     <th>Horas</th>
@@ -84,7 +121,10 @@
             {
                 <tr>
                     <td>@entry.WorkDate.ToString("dd/MM/yyyy")</td>
-                    <td class="fw-semibold">@entry.EmployeeName</td>
+                    @if (Model.CanChooseEmployee)
+                    {
+                        <td class="fw-semibold">@entry.EmployeeName</td>
+                    }
                     <td>
                         <span class="project-dot" style="background:@entry.ProjectColorHex"></span>
                         @entry.ProjectName
@@ -92,8 +132,8 @@
                     <td>@entry.Description</td>
                     <td>@entry.Hours.ToString("0.##")h</td>
                     <td>
-                        <span class="status-pill @(entry.IsBillable ? "status-active" : "status-muted")">
-                            @(entry.IsBillable ? "Faturável" : "Interno")
+                        <span class="status-pill @(entry.EntryType switch { TimesheetEntryType.Work => (entry.IsBillable ? "status-active" : "status-muted"), TimesheetEntryType.Vacation => "status-vacation", _ => "status-admin" })">
+                            @entry.EntryType.ToDisplayName()
                         </span>
                     </td>
                     <td class="text-end">

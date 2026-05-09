@@ -13,6 +13,7 @@
 
 html {
   font-size: 16px;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -23,6 +24,7 @@ body {
     radial-gradient(circle at top left, rgba(15, 118, 110, 0.12), transparent 30%),
     radial-gradient(circle at top right, rgba(234, 179, 8, 0.12), transparent 28%),
     var(--bg);
+  overflow-y: auto;
 }
 
 .btn:focus,
@@ -51,6 +53,17 @@ body {
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--text);
+}
+
+.brand-copy {
+  display: grid;
+  line-height: 1.05;
+}
+
+.brand-copy small {
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  color: var(--muted);
 }
 
 .brand-mark {
@@ -101,6 +114,7 @@ body {
 .stat-card {
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
+  animation: fade-up 0.5s ease both;
 }
 
 .hero-panel {
@@ -111,6 +125,19 @@ body {
   border-radius: var(--radius-lg);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(241, 231, 208, 0.78));
   margin-bottom: 1.5rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.hero-panel::after {
+  content: "";
+  position: absolute;
+  inset: auto -8% -30% auto;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(15, 118, 110, 0.18), transparent 70%);
+  pointer-events: none;
 }
 
 .hero-panel h1,
@@ -135,6 +162,13 @@ body {
   align-items: start;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.page-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .simple-action-button {
@@ -182,6 +216,13 @@ body {
 .stat-card {
   padding: 1.25rem 1.35rem;
   border-radius: var(--radius-md);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover,
+.card-surface:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 28px 70px rgba(23, 32, 51, 0.1);
 }
 
 .stat-card strong {
@@ -205,6 +246,7 @@ body {
 .card-surface {
   padding: 1.5rem;
   border-radius: var(--radius-lg);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .entry-list,
@@ -264,6 +306,11 @@ body {
 .status-admin {
   color: #1d4ed8;
   background: rgba(59, 130, 246, 0.14);
+}
+
+.status-vacation {
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.14);
 }
 
 .filter-shell,
@@ -386,17 +433,65 @@ body {
 
 .calendar-day {
   aspect-ratio: 1;
+  min-height: 6.6rem;
   border: 1px solid rgba(23, 32, 51, 0.08);
   border-radius: 0.9rem;
   color: var(--text);
   background: rgba(255, 255, 255, 0.84);
   font-weight: 700;
+  padding: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0.3rem;
+  text-align: left;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
 }
 
 .calendar-day:hover,
 .calendar-day:focus {
   border-color: rgba(15, 118, 110, 0.35);
   outline: none;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(15, 118, 110, 0.08);
+}
+
+.calendar-day-number {
+  display: block;
+  font-size: 0.88rem;
+}
+
+.calendar-day-events {
+  display: grid;
+  gap: 0.2rem;
+  min-height: 0;
+}
+
+.calendar-task-chip {
+  display: block;
+  overflow: hidden;
+  padding: 0.18rem 0.4rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--task-color) 18%, white);
+  border-left: 0.22rem solid var(--task-color);
+  color: var(--text);
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.calendar-task-chip-saved {
+  opacity: 0.82;
+  background: color-mix(in srgb, var(--task-color) 11%, white);
+}
+
+.calendar-task-chip-more {
+  border-left-color: transparent;
+  background: rgba(23, 32, 51, 0.08);
+  color: var(--muted);
 }
 
 .calendar-day.is-muted {
@@ -411,9 +506,8 @@ body {
 }
 
 .calendar-day.has-entry {
-  color: #fff;
-  border-color: var(--accent);
-  background: linear-gradient(135deg, var(--accent), #0ea5a0);
+  border-color: rgba(15, 118, 110, 0.24);
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.06), rgba(255, 255, 255, 0.92));
 }
 
 .calendar-day.is-disabled {
@@ -452,6 +546,7 @@ body {
   border: 0;
   border-radius: 1.5rem;
   box-shadow: var(--shadow);
+  animation: modal-rise 0.22s ease;
 }
 
 .modal {
@@ -478,6 +573,28 @@ body {
 .modal-open {
   overflow: auto;
   padding-right: 0 !important;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .btn-primary {

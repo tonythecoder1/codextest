@@ -6,9 +6,9 @@
 
 <section class="hero-panel">
     <div>
-        <p class="eyebrow">Timesheets</p>
+        <p class="eyebrow">SAVANA</p>
         <h1>Visão rápida das horas da equipa.</h1>
-        <p class="hero-copy">Uma app simples para registar horas, acompanhar carga mensal e manter projetos e equipa organizados.</p>
+        <p class="hero-copy">BY HUMANS FOR HUMANS. Uma experiência leve para registar horas, acompanhar carga mensal e manter projetos e equipa organizados.</p>
     </div>
     <div class="hero-actions">
         <a class="btn btn-primary simple-action-button" asp-controller="TimesheetEntries" asp-action="Create">Novo registo</a>
@@ -18,11 +18,11 @@
 
 <section class="stats-grid">
     <article class="stat-card">
-        <span class="stat-label">Colaboradores ativos</span>
+        <span class="stat-label">@Model.PrimaryStatLabel</span>
         <strong>@Model.ActiveEmployees</strong>
     </article>
     <article class="stat-card">
-        <span class="stat-label">Projetos ativos</span>
+        <span class="stat-label">@Model.SecondaryStatLabel</span>
         <strong>@Model.ActiveProjects</strong>
     </article>
     <article class="stat-card">
@@ -75,8 +75,8 @@
     <div class="card-surface">
         <div class="section-heading">
             <div>
-                <p class="eyebrow">Capacidade</p>
-                <h2>Horas por colaborador</h2>
+                <p class="eyebrow">@Model.SummaryEyebrow</p>
+                <h2>@Model.SummarySectionTitle</h2>
             </div>
         </div>
 

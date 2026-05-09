@@ -35,6 +35,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.Description).HasMaxLength(280);
             entity.Property(e => e.Hours).HasPrecision(5, 2);
             entity.Property(e => e.WorkDate).HasColumnType("date");
+            entity.Property(e => e.EntryType).HasConversion<string>().HasMaxLength(20);
 
             entity.HasOne(e => e.Employee)
                 .WithMany(e => e.TimesheetEntries)

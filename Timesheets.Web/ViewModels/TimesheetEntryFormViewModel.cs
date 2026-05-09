@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Timesheets.Web.Models;
 
 namespace Timesheets.Web.ViewModels;
 
@@ -15,9 +16,11 @@ public class TimesheetEntryFormViewModel
     public int EmployeeId { get; set; }
 
     [Required]
-    [Range(1, int.MaxValue, ErrorMessage = "Seleciona um projeto.")]
+    [Display(Name = "Tipo")]
+    public TimesheetEntryType EntryType { get; set; } = TimesheetEntryType.Work;
+
     [Display(Name = "Projeto")]
-    public int ProjectId { get; set; }
+    public int? ProjectId { get; set; }
 
     [Required]
     [DataType(DataType.Date)]
@@ -42,4 +45,5 @@ public class TimesheetEntryFormViewModel
 
     public List<SelectListItem> Employees { get; set; } = [];
     public List<SelectListItem> Projects { get; set; } = [];
+    public List<SelectListItem> EntryTypes { get; set; } = [];
 }

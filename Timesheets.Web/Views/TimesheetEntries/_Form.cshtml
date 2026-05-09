@@ -18,11 +18,17 @@
         <input asp-for="EmployeeId" type="hidden" />
     }
     <div class="col-md-6">
+        <label asp-for="EntryType" class="form-label"></label>
+        <select asp-for="EntryType" asp-items="Model.EntryTypes" class="form-select" data-entry-type-select></select>
+        <span asp-validation-for="EntryType" class="text-danger"></span>
+    </div>
+    <div class="col-md-6" data-project-field>
         <label asp-for="ProjectId" class="form-label"></label>
         <select asp-for="ProjectId" asp-items="Model.Projects" class="form-select">
             <option value="">Seleciona um projeto</option>
         </select>
         <span asp-validation-for="ProjectId" class="text-danger"></span>
+        <p class="form-hint">Obrigatório para registos de trabalho.</p>
     </div>
     @if (Model.Id.HasValue)
     {
@@ -74,5 +80,35 @@
             <input asp-for="IsBillable" class="form-check-input" />
             <label asp-for="IsBillable" class="form-check-label"></label>
         </div>
+        <p class="form-hint">Férias e ausências ficam sempre como não faturáveis.</p>
     </div>
 </div>
+
+<script>
+    (() => {
+        const typeSelect = document.querySelector("[data-entry-type-select]");
+        const projectField = document.querySelector("[data-project-field]");
+        const projectSelect = projectField?.querySelector("select");
+        const billableInput = document.getElementById("IsBillable");
+
+        if (!typeSelect || !projectField || !projectSelect || !billableInput) {
+            return;
+        }
+
+        const syncEntryTypeState = () => {
+            const isWork = typeSelect.value === "Work";
+            projectField.hidden = !isWork;
+
+            if (!isWork) {
+                projectSelect.value = "";
+                billableInput.checked = false;
+                billableInput.disabled = true;
+            } else {
+                billableInput.disabled = false;
+            }
+        };
+
+        typeSelect.addEventListener("change", syncEntryTypeState);
+        syncEntryTypeState();
+    })();
+</script>

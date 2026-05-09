@@ -1,9 +1,17 @@
 @using System.Text.Json
+@using System.Text.Json.Serialization
 @model TimesheetEntryCreateViewModel
 
 @{
     ViewData["Title"] = "Novo registo";
     var projectsJson = JsonSerializer.Serialize(Model.Projects);
+    var existingEntriesJson = JsonSerializer.Serialize(
+        Model.ExistingEntries,
+        new JsonSerializerOptions
+        {
+            Converters = { new JsonStringEnumConverter() }
+        });
+    var entryTypesJson = JsonSerializer.Serialize(Model.EntryTypes.Select(item => new { item.Value, item.Text }));
 }
 
 <section class="page-header">
@@ -87,6 +95,15 @@
             <div class="modal-body">
                 <input type="hidden" id="modalWorkDate" />
                 <div class="mb-3">
+                    <label for="modalEntryType" class="form-label">Tipo</label>
+                    <select id="modalEntryType" class="form-select">
+                        @foreach (var entryType in Model.EntryTypes)
+                        {
+                            <option value="@entryType.Value">@entryType.Text</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-3" data-modal-project-field>
                     <label for="modalProjectId" class="form-label">Projeto</label>
                     <select id="modalProjectId" class="form-select" required></select>
                     <p class="form-hint" data-weekend-project-hint hidden>Este dia é fim de semana. Só aparecem projetos que permitem fim de semana.</p>
@@ -124,16 +141,21 @@
             }
 
             const projects = @Html.Raw(projectsJson);
+            const existingEntries = @Html.Raw(existingEntriesJson);
+            const entryTypes = @Html.Raw(entryTypesJson);
             const daysContainer = picker.querySelector("[data-calendar-days]");
             const title = picker.querySelector("[data-calendar-title]");
             const entriesInput = document.getElementById("entriesJsonInput");
+            const employeeIdInput = document.getElementById("EmployeeId");
             const pendingEntries = document.querySelector("[data-pending-entries]");
             const submitButton = document.querySelector("[data-submit-entries]");
             const modalElement = document.getElementById("entryModal");
             const modal = new bootstrap.Modal(modalElement);
             const modalTitle = document.getElementById("entryModalTitle");
             const modalWorkDate = document.getElementById("modalWorkDate");
+            const modalEntryType = document.getElementById("modalEntryType");
             const modalProjectId = document.getElementById("modalProjectId");
+            const modalProjectField = document.querySelector("[data-modal-project-field]");
             const modalHours = document.getElementById("modalHours");
             const modalDescription = document.getElementById("modalDescription");
             const modalIsBillable = document.getElementById("modalIsBillable");
@@ -144,6 +166,7 @@
             let visibleDate = new Date();
 
             const hasWeekendProjects = projects.some((project) => project.AllowWeekendWork);
+            const selectedEmployeeId = () => Number(employeeIdInput?.value || @Model.EmployeeId);
 
             const formatDate = (date) => {
                 const year = date.getFullYear();
@@ -160,6 +183,11 @@
                 month: "short",
                 year: "numeric"
             });
+
+            const entryTypeLabel = (value) => entryTypes.find((item) => item.Value === value)?.Text ?? value;
+            const taskLabel = (entry) => `${entryTypeLabel(entry.entryType)} · ${entry.hours}h`;
+            const currentExistingEntries = () => existingEntries.filter((entry) => entry.EmployeeId === selectedEmployeeId());
+            const currentPendingEntries = () => entries.filter((entry) => entry.employeeId === undefined || Number(entry.employeeId) === selectedEmployeeId());
 
             const syncEntries = () => {
                 entriesInput.value = JSON.stringify(entries);
@@ -181,7 +209,7 @@
                         card.innerHTML = `
                             <div>
                                 <strong>${displayDate(entry.workDate)}</strong>
-                                <p><span class="project-dot" style="background:${project?.ColorHex || "#0F766E"}"></span>${project?.Name || "Projeto"} · ${entry.hours}h</p>
+                                <p><span class="project-dot" style="background:${project?.ColorHex || "#0F766E"}"></span>${project?.Name || entryTypeLabel(entry.entryType)} · ${entry.hours}h</p>
                                 <p>${entry.description}</p>
                             </div>
                             <button type="button" class="btn btn-sm btn-outline-danger">Remover</button>
@@ -211,15 +239,30 @@
                 weekendHint.hidden = !weekend;
             };
 
+            const syncModalEntryType = () => {
+                const isWork = modalEntryType.value === "Work";
+                modalProjectField.hidden = !isWork;
+
+                if (!isWork) {
+                    modalProjectId.value = "";
+                    modalIsBillable.checked = false;
+                    modalIsBillable.disabled = true;
+                } else {
+                    modalIsBillable.disabled = false;
+                }
+            };
+
             const openModal = (date) => {
                 modalError.hidden = true;
                 modalError.textContent = "";
                 modalWorkDate.value = formatDate(date);
                 modalTitle.textContent = `Adicionar horas em ${displayDate(modalWorkDate.value)}`;
+                modalEntryType.value = "Work";
                 modalHours.value = "";
                 modalDescription.value = "";
                 modalIsBillable.checked = true;
                 populateProjectOptions(date);
+                syncModalEntryType();
                 modal.show();
             };
 
@@ -245,14 +288,57 @@
                     const button = document.createElement("button");
                     button.type = "button";
                     button.className = "calendar-day";
-                    button.textContent = day.getDate();
+                    button.innerHTML = `
+                        <span class="calendar-day-number">${day.getDate()}</span>
+                        <span class="calendar-day-events"></span>
+                    `;
+
+                    const eventsHost = button.querySelector(".calendar-day-events");
+                    const dayEntries = [
+                        ...currentExistingEntries()
+                            .filter((entry) => entry.WorkDate.startsWith(value))
+                            .map((entry) => ({
+                                workDate: value,
+                                entryType: entry.EntryType,
+                                projectId: entry.ProjectId,
+                                hours: entry.Hours,
+                                description: entry.Description,
+                                source: "saved"
+                            })),
+                        ...currentPendingEntries()
+                            .filter((entry) => entry.workDate === value)
+                            .map((entry) => ({
+                                ...entry,
+                                source: "pending"
+                            }))
+                    ].sort((a, b) => Number(a.projectId) - Number(b.projectId));
 
                     if (day.getMonth() !== visibleDate.getMonth()) {
                         button.classList.add("is-muted");
                     }
 
-                    if (entries.some((entry) => entry.workDate === value)) {
+                    if (dayEntries.length > 0) {
                         button.classList.add("has-entry");
+
+                        dayEntries.slice(0, 3).forEach((entry, entryIndex) => {
+                            const project = projects.find((item) => item.Id === entry.projectId);
+                            const chip = document.createElement("span");
+                            chip.className = "calendar-task-chip";
+                            if (entry.source === "saved") {
+                                chip.classList.add("calendar-task-chip-saved");
+                            }
+                            chip.style.setProperty("--task-color", project?.ColorHex || "#0F766E");
+                            chip.textContent = taskLabel(entry);
+                            chip.title = `${project?.Name || entryTypeLabel(entry.entryType)} · ${entry.description}`;
+                            eventsHost.appendChild(chip);
+                        });
+
+                        if (dayEntries.length > 3) {
+                            const moreChip = document.createElement("span");
+                            moreChip.className = "calendar-task-chip calendar-task-chip-more";
+                            moreChip.textContent = `+${dayEntries.length - 3}`;
+                            eventsHost.appendChild(moreChip);
+                        }
                     }
 
                     if (disabled) {
@@ -268,25 +354,29 @@
             };
 
             addEntryButton.addEventListener("click", () => {
+                const selectedEntryType = modalEntryType.value;
                 const selectedProjectId = Number(modalProjectId.value);
                 const selectedDate = parseDate(modalWorkDate.value);
                 const selectedProject = projects.find((project) => project.Id === selectedProjectId);
                 const hours = Number(modalHours.value);
                 const description = modalDescription.value.trim();
-                const existingDayHours = entries
+                const existingDayHours = currentExistingEntries()
+                    .filter((entry) => entry.WorkDate.startsWith(modalWorkDate.value))
+                    .reduce((total, entry) => total + Number(entry.Hours), 0);
+                const pendingDayHours = currentPendingEntries()
                     .filter((entry) => entry.workDate === modalWorkDate.value)
                     .reduce((total, entry) => total + Number(entry.hours), 0);
 
                 modalError.hidden = true;
                 modalError.textContent = "";
 
-                if (!selectedProject) {
+                if (selectedEntryType === "Work" && !selectedProject) {
                     modalError.textContent = "Seleciona um projeto.";
-                } else if (isWeekend(selectedDate) && !selectedProject.AllowWeekendWork) {
+                } else if (selectedEntryType === "Work" && isWeekend(selectedDate) && !selectedProject.AllowWeekendWork) {
                     modalError.textContent = "Este projeto não permite trabalho ao fim de semana.";
                 } else if (!Number.isFinite(hours) || hours < 0.25 || hours > 12) {
                     modalError.textContent = "As horas têm de estar entre 0,25h e 12h.";
-                } else if (existingDayHours + hours > 12) {
+                } else if (existingDayHours + pendingDayHours + hours > 12) {
                     modalError.textContent = "O total deste dia não pode ultrapassar 12h.";
                 } else if (!description) {
                     modalError.textContent = "Escreve uma descrição.";
@@ -298,11 +388,13 @@
                 }
 
                 entries.push({
+                    employeeId: selectedEmployeeId(),
+                    entryType: selectedEntryType,
                     workDate: modalWorkDate.value,
-                    projectId: selectedProjectId,
+                    projectId: selectedEntryType === "Work" ? selectedProjectId : null,
                     hours,
                     description,
-                    isBillable: modalIsBillable.checked
+                    isBillable: selectedEntryType === "Work" && modalIsBillable.checked
                 });
 
                 syncEntries();
@@ -317,6 +409,13 @@
 
             picker.querySelector("[data-calendar-next]").addEventListener("click", () => {
                 visibleDate = new Date(visibleDate.getFullYear(), visibleDate.getMonth() + 1, 1);
+                renderCalendar();
+            });
+
+            modalEntryType.addEventListener("change", syncModalEntryType);
+            employeeIdInput?.addEventListener("change", () => {
+                entries.length = 0;
+                syncEntries();
                 renderCalendar();
             });
 
