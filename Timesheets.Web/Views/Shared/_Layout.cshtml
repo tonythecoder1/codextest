@@ -44,7 +44,6 @@
                         </ul>
                         <div class="nav-user">
                             <span>@User.Identity.Name</span>
-                            <a class="btn btn-primary btn-sm simple-action-button" asp-controller="TimesheetEntries" asp-action="Create">Novo registo</a>
                             <form asp-controller="Account" asp-action="Logout" method="post">
                                 @Html.AntiForgeryToken()
                                 <button type="submit" class="btn btn-outline-secondary btn-sm">Sair</button>

@@ -28,7 +28,6 @@
             <option value="">Seleciona um projeto</option>
         </select>
         <span asp-validation-for="ProjectId" class="text-danger"></span>
-        <p class="form-hint">Obrigatório para registos de trabalho.</p>
     </div>
     @if (Model.Id.HasValue)
     {
@@ -62,7 +61,6 @@
                 <div class="calendar-days" data-calendar-days></div>
             </div>
             <span asp-validation-for="SelectedDates" class="text-danger"></span>
-            <p class="form-hint">Clica num ou mais dias. Será criado um registo igual para cada dia selecionado.</p>
         </div>
     }
     <div class="col-md-6">
@@ -80,7 +78,6 @@
             <input asp-for="IsBillable" class="form-check-input" />
             <label asp-for="IsBillable" class="form-check-label"></label>
         </div>
-        <p class="form-hint">Férias e ausências ficam sempre como não faturáveis.</p>
     </div>
 </div>
 

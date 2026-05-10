@@ -16,11 +16,13 @@ namespace Timesheets.Web.Controllers;
 [Authorize]
 public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfService pdfService) : Controller
 {
-    public async Task<IActionResult> Index(int? employeeId, int? projectId, DateTime? fromDate, DateTime? toDate, string? selectedMonth)
+    public async Task<IActionResult> Index(int? employeeId, int? projectId, DateTime? fromDate, DateTime? toDate, int? pdfEmployeeId, string? selectedMonth)
     {
-        if (!IsAdmin())
+        var isAdmin = IsAdmin();
+        if (!isAdmin)
         {
             employeeId = GetCurrentEmployeeId();
+            pdfEmployeeId = employeeId;
         }
 
         var query = context.TimesheetEntries
@@ -49,9 +51,27 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
             query = query.Where(entry => entry.WorkDate <= toDate.Value.Date);
         }
 
-        var effectiveEmployeeId = employeeId ?? (IsAdmin() ? null : GetCurrentEmployeeId());
-        var completedMonths = effectiveEmployeeId.HasValue
-            ? await GetCompletedMonthOptionsAsync(effectiveEmployeeId.Value)
+        var employeeOptions = isAdmin
+            ? await GetEmployeeOptionsAsync(employeeId)
+            : [];
+
+        var effectivePdfEmployeeId = pdfEmployeeId ?? employeeId;
+        if (isAdmin && !effectivePdfEmployeeId.HasValue)
+        {
+            effectivePdfEmployeeId = await context.Employees
+                .AsNoTracking()
+                .Where(employee => employee.IsActive)
+                .OrderBy(employee => employee.FullName)
+                .Select(employee => (int?)employee.Id)
+                .FirstOrDefaultAsync();
+        }
+
+        var pdfEmployeeOptions = isAdmin
+            ? await GetEmployeeOptionsAsync(effectivePdfEmployeeId)
+            : [];
+
+        var completedMonths = effectivePdfEmployeeId.HasValue
+            ? await GetCompletedMonthOptionsAsync(effectivePdfEmployeeId.Value)
             : [];
 
         var selectedMonthValue = !string.IsNullOrWhiteSpace(selectedMonth) && completedMonths.Any(item => item.Value == selectedMonth)
@@ -60,15 +80,16 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
 
         var model = new TimesheetEntriesIndexViewModel
         {
-            CanChooseEmployee = IsAdmin(),
+            CanChooseEmployee = isAdmin,
             EmployeeId = employeeId,
             ProjectId = projectId,
             FromDate = fromDate,
             ToDate = toDate,
+            PdfEmployeeId = effectivePdfEmployeeId,
             SelectedMonth = selectedMonthValue,
             CompletedMonths = completedMonths,
-            CanGenerateMonthlyPdf = completedMonths.Count > 0,
-            MonthlyPdfHelpText = BuildMonthlyPdfHelpText(effectiveEmployeeId, completedMonths.Count),
+            CanGenerateMonthlyPdf = effectivePdfEmployeeId.HasValue && completedMonths.Count > 0,
+            MonthlyPdfHelpText = BuildMonthlyPdfHelpText(effectivePdfEmployeeId, completedMonths.Count),
             TotalHours = await query.SumAsync(entry => (decimal?)entry.Hours) ?? 0m,
             EntryCount = await query.CountAsync(),
             Entries = await query
@@ -87,9 +108,15 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
                     Description = entry.Description
                 })
                 .ToListAsync(),
-            Employees = await GetEmployeeOptionsAsync(employeeId),
+            Employees = employeeOptions,
+            PdfEmployees = pdfEmployeeOptions,
             Projects = await GetProjectOptionsAsync(projectId)
         };
+
+        if (isAdmin)
+        {
+            model.PdfMonthLookup = await GetPdfMonthLookupAsync(pdfEmployeeOptions);
+        }
 
         return View(model);
     }
@@ -483,10 +510,13 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
             .ThenBy(entry => entry.Id)
             .Select(entry => new ExistingCalendarEntryViewModel
             {
+                Id = entry.Id,
                 EmployeeId = entry.EmployeeId,
                 WorkDate = entry.WorkDate,
                 EntryType = entry.EntryType,
                 ProjectId = entry.ProjectId,
+                ProjectName = entry.Project != null ? entry.Project.Name : string.Empty,
+                ProjectColorHex = entry.Project != null ? entry.Project.ColorHex : "#6B8760",
                 Hours = entry.Hours,
                 Description = entry.Description
             })
@@ -544,6 +574,32 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
 
         completedMonths.Reverse();
         return completedMonths;
+    }
+
+    private async Task<List<EmployeeCompletedMonthsViewModel>> GetPdfMonthLookupAsync(List<SelectListItem> employees)
+    {
+        var lookup = new List<EmployeeCompletedMonthsViewModel>();
+
+        foreach (var employee in employees)
+        {
+            if (!int.TryParse(employee.Value, out var employeeId))
+            {
+                continue;
+            }
+
+            var months = await GetCompletedMonthOptionsAsync(employeeId);
+            lookup.Add(new EmployeeCompletedMonthsViewModel
+            {
+                EmployeeId = employeeId,
+                Months = months.Select(month => new CompletedMonthOptionViewModel
+                {
+                    Value = month.Value ?? string.Empty,
+                    Text = month.Text ?? string.Empty
+                }).ToList()
+            });
+        }
+
+        return lookup;
     }
 
     private static bool IsMonthComplete(DateTime monthStart, HashSet<DateTime> coveredDays)

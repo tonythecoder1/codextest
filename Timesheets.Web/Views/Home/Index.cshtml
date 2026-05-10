@@ -8,7 +8,6 @@
     <div>
         <p class="eyebrow">SAVANA</p>
         <h1>Visão rápida das horas da equipa.</h1>
-        <p class="hero-copy">BY HUMANS FOR HUMANS. Uma experiência leve para registar horas, acompanhar carga mensal e manter projetos e equipa organizados.</p>
     </div>
     <div class="hero-actions">
         <a class="btn btn-primary simple-action-button" asp-controller="TimesheetEntries" asp-action="Create">Novo registo</a>
@@ -47,7 +46,7 @@
 
         @if (Model.RecentEntries.Count == 0)
         {
-            <p class="empty-state">Ainda não existem registos. Cria o primeiro para começar.</p>
+            <p class="empty-state">Sem registos.</p>
         }
         else
         {
@@ -82,7 +81,7 @@
 
         @if (Model.EmployeeHoursThisMonth.Count == 0)
         {
-            <p class="empty-state">Sem horas registadas este mês.</p>
+            <p class="empty-state">Sem horas este mês.</p>
         }
         else
         {

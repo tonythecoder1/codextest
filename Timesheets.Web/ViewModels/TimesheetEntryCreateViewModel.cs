@@ -44,10 +44,13 @@ public class TimesheetEntryCreateInput
 
 public class ExistingCalendarEntryViewModel
 {
+    public int Id { get; set; }
     public int EmployeeId { get; set; }
     public DateTime WorkDate { get; set; }
     public TimesheetEntryType EntryType { get; set; }
     public int? ProjectId { get; set; }
+    public string ProjectName { get; set; } = string.Empty;
+    public string ProjectColorHex { get; set; } = "#6B8760";
     public decimal Hours { get; set; }
     public string Description { get; set; } = string.Empty;
 }

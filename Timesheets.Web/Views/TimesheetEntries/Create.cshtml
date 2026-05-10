@@ -12,13 +12,13 @@
             Converters = { new JsonStringEnumConverter() }
         });
     var entryTypesJson = JsonSerializer.Serialize(Model.EntryTypes.Select(item => new { item.Value, item.Text }));
+    var editBaseUrl = Url.Action("Edit", "TimesheetEntries") ?? "/TimesheetEntries/Edit";
 }
 
 <section class="page-header">
-    <div>
+    <div class="page-header-copy">
         <p class="eyebrow">Operação</p>
         <h1>Novo registo de horas</h1>
-        <p class="page-intro">Clica num dia do calendário e adiciona horas, projeto e descrição no modal.</p>
     </div>
 </section>
 
@@ -28,12 +28,18 @@
 
         @if (Model.CanChooseEmployee)
         {
-            <div class="mb-3">
-                <label asp-for="EmployeeId" class="form-label"></label>
-                <select asp-for="EmployeeId" asp-items="Model.Employees" class="form-select">
-                    <option value="">Seleciona um colaborador</option>
-                </select>
-                <span asp-validation-for="EmployeeId" class="text-danger"></span>
+            <div class="create-admin-context">
+                <div>
+                    <p class="eyebrow mb-1">Contexto</p>
+                    <h2 class="h5 mb-1">Escolhe o colaborador antes de lançar</h2>
+                </div>
+                <div class="create-admin-context-field">
+                    <label asp-for="EmployeeId" class="form-label"></label>
+                    <select asp-for="EmployeeId" asp-items="Model.Employees" class="form-select">
+                        <option value="">Seleciona um colaborador</option>
+                    </select>
+                    <span asp-validation-for="EmployeeId" class="text-danger"></span>
+                </div>
             </div>
         }
         else
@@ -44,91 +50,133 @@
         <input asp-for="EntriesJson" type="hidden" id="entriesJsonInput" />
         <span asp-validation-for="EntriesJson" class="text-danger"></span>
 
-        <div class="calendar-picker">
-            <div class="calendar-toolbar">
-                <button class="btn btn-outline-secondary btn-sm" type="button" data-calendar-prev>Anterior</button>
-                <strong data-calendar-title></strong>
-                <button class="btn btn-outline-secondary btn-sm" type="button" data-calendar-next>Seguinte</button>
-            </div>
-            <div class="calendar-weekdays">
-                <span>Seg</span>
-                <span>Ter</span>
-                <span>Qua</span>
-                <span>Qui</span>
-                <span>Sex</span>
-                <span>Sáb</span>
-                <span>Dom</span>
-            </div>
-            <div class="calendar-days" data-calendar-days></div>
-            <p class="form-hint mt-3">Sábados e domingos só ficam disponíveis quando existe pelo menos um projeto que permite trabalho ao fim de semana.</p>
+        <div class="timesheet-create-layout">
+            <section class="calendar-stage">
+                <div class="calendar-stage-header">
+                    <p class="eyebrow">Calendário</p>
+                    <h2 class="calendar-stage-title">Seleciona os dias</h2>
+                </div>
+
+                <div class="calendar-picker">
+                    <div class="calendar-toolbar">
+                        <button class="btn btn-outline-secondary btn-sm" type="button" data-calendar-prev>Anterior</button>
+                        <strong data-calendar-title></strong>
+                        <button class="btn btn-outline-secondary btn-sm" type="button" data-calendar-next>Seguinte</button>
+                    </div>
+                    <div class="calendar-weekdays">
+                        <span>Seg</span>
+                        <span>Ter</span>
+                        <span>Qua</span>
+                        <span>Qui</span>
+                        <span>Sex</span>
+                        <span>Sáb</span>
+                        <span>Dom</span>
+                    </div>
+                    <div class="calendar-days" data-calendar-days></div>
+                </div>
+            </section>
+
+            <aside class="entry-editor-panel">
+                <div class="editor-panel-header">
+                    <div>
+                        <p class="eyebrow">Seleção</p>
+                        <h2 class="editor-panel-title" data-selection-title>Seleciona pelo menos um dia</h2>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-clear-selection disabled>Limpar</button>
+                </div>
+
+                <p class="editor-panel-note mb-0" data-selection-summary>Clica num dia do calendário para começar.</p>
+
+                <div class="selection-chip-list" data-selected-days>
+                    <p class="empty-state mb-0">Nenhum dia selecionado.</p>
+                </div>
+
+                <section class="editor-section" data-saved-day-shell hidden>
+                    <div class="editor-section-header">
+                        <div>
+                            <p class="editor-section-kicker">Já registado</p>
+                            <h3 class="editor-section-title">Entradas guardadas</h3>
+                        </div>
+                    </div>
+                    <div class="day-detail-list" data-existing-day-entries></div>
+                </section>
+
+                <section class="editor-section" data-pending-day-shell hidden>
+                    <div class="editor-section-header">
+                        <div>
+                            <p class="editor-section-kicker">Ainda por guardar</p>
+                            <h3 class="editor-section-title">Entradas pendentes</h3>
+                        </div>
+                    </div>
+                    <div class="day-detail-list" data-pending-day-entries></div>
+                </section>
+
+                <section class="editor-section editor-compose-shell">
+                    <div class="editor-section-header">
+                        <div>
+                            <p class="editor-section-kicker">Novo lançamento</p>
+                            <h3 class="editor-section-title">Adicionar à seleção</h3>
+                        </div>
+                    </div>
+
+                    <div class="editor-form-grid">
+                        <div class="editor-field">
+                            <label for="editorEntryType" class="form-label">Tipo</label>
+                            <select id="editorEntryType" class="form-select">
+                                @foreach (var entryType in Model.EntryTypes)
+                                {
+                                    <option value="@entryType.Value">@entryType.Text</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="editor-field" data-editor-project-field>
+                            <label for="editorProjectId" class="form-label">Projeto</label>
+                            <select id="editorProjectId" class="form-select"></select>
+                        </div>
+
+                        <div class="editor-field">
+                            <label for="editorHours" class="form-label">Horas</label>
+                            <input id="editorHours" class="form-control" type="number" min="0.25" max="12" step="0.25" />
+                        </div>
+
+                        <div class="editor-field editor-field-full">
+                            <label for="editorDescription" class="form-label">Descrição</label>
+                            <textarea id="editorDescription" class="form-control" rows="4"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-check mt-3">
+                        <input id="editorIsBillable" class="form-check-input" type="checkbox" checked />
+                        <label for="editorIsBillable" class="form-check-label">Faturável</label>
+                    </div>
+
+                    <div class="alert alert-danger mt-3 mb-0" data-editor-error hidden></div>
+
+                    <div class="editor-actions">
+                        <button type="button" class="btn btn-primary" data-add-entry disabled>Adicionar à seleção</button>
+                    </div>
+                </section>
+            </aside>
         </div>
 
-        <div class="pending-entry-shell">
-            <div class="section-heading">
+        <div class="pending-entry-shell form-subsection">
+            <div class="section-heading section-heading-soft">
                 <div>
                     <p class="eyebrow">Pré-visualização</p>
                     <h2>Registos a guardar</h2>
                 </div>
             </div>
             <div class="pending-entry-list" data-pending-entries>
-                <p class="empty-state mb-0">Ainda não adicionaste nenhum registo. Clica num dia do calendário para começar.</p>
+                <p class="empty-state mb-0">Ainda não adicionaste nenhum registo. Seleciona dias e cria o primeiro lançamento.</p>
             </div>
         </div>
 
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary simple-action-button" data-submit-entries disabled>Guardar registos</button>
+            <button type="submit" class="btn btn-primary" data-submit-entries disabled>Guardar registos</button>
             <a asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
         </div>
     </form>
-</div>
-
-<div class="modal fade" id="entryModal" tabindex="-1" aria-labelledby="entryModalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content entry-modal">
-            <div class="modal-header">
-                <div>
-                    <p class="eyebrow mb-1">Novo registo</p>
-                    <h2 class="modal-title h5" id="entryModalTitle">Adicionar horas</h2>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="modalWorkDate" />
-                <div class="mb-3">
-                    <label for="modalEntryType" class="form-label">Tipo</label>
-                    <select id="modalEntryType" class="form-select">
-                        @foreach (var entryType in Model.EntryTypes)
-                        {
-                            <option value="@entryType.Value">@entryType.Text</option>
-                        }
-                    </select>
-                </div>
-                <div class="mb-3" data-modal-project-field>
-                    <label for="modalProjectId" class="form-label">Projeto</label>
-                    <select id="modalProjectId" class="form-select" required></select>
-                    <p class="form-hint" data-weekend-project-hint hidden>Este dia é fim de semana. Só aparecem projetos que permitem fim de semana.</p>
-                </div>
-                <div class="mb-3">
-                    <label for="modalHours" class="form-label">Horas</label>
-                    <input id="modalHours" class="form-control" type="number" min="0.25" max="12" step="0.25" />
-                    <p class="form-hint">Máximo permitido: 12h por dia.</p>
-                </div>
-                <div class="mb-3">
-                    <label for="modalDescription" class="form-label">Descrição</label>
-                    <textarea id="modalDescription" class="form-control" rows="3"></textarea>
-                </div>
-                <div class="form-check">
-                    <input id="modalIsBillable" class="form-check-input" type="checkbox" checked />
-                    <label for="modalIsBillable" class="form-check-label">Faturável</label>
-                </div>
-                <div class="alert alert-danger mt-3 mb-0" data-modal-error hidden></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" data-add-entry>Adicionar</button>
-            </div>
-        </div>
-    </div>
 </div>
 
 @section Scripts {
@@ -143,30 +191,45 @@
             const projects = @Html.Raw(projectsJson);
             const existingEntries = @Html.Raw(existingEntriesJson);
             const entryTypes = @Html.Raw(entryTypesJson);
+            const editBaseUrl = "@editBaseUrl";
+            const fallbackColor = "#6B8760";
             const daysContainer = picker.querySelector("[data-calendar-days]");
             const title = picker.querySelector("[data-calendar-title]");
             const entriesInput = document.getElementById("entriesJsonInput");
             const employeeIdInput = document.getElementById("EmployeeId");
-            const pendingEntries = document.querySelector("[data-pending-entries]");
+            const pendingEntriesHost = document.querySelector("[data-pending-entries]");
             const submitButton = document.querySelector("[data-submit-entries]");
-            const modalElement = document.getElementById("entryModal");
-            const modal = new bootstrap.Modal(modalElement);
-            const modalTitle = document.getElementById("entryModalTitle");
-            const modalWorkDate = document.getElementById("modalWorkDate");
-            const modalEntryType = document.getElementById("modalEntryType");
-            const modalProjectId = document.getElementById("modalProjectId");
-            const modalProjectField = document.querySelector("[data-modal-project-field]");
-            const modalHours = document.getElementById("modalHours");
-            const modalDescription = document.getElementById("modalDescription");
-            const modalIsBillable = document.getElementById("modalIsBillable");
-            const modalError = document.querySelector("[data-modal-error]");
-            const weekendHint = document.querySelector("[data-weekend-project-hint]");
+            const selectionTitle = document.querySelector("[data-selection-title]");
+            const selectionSummary = document.querySelector("[data-selection-summary]");
+            const selectedDaysHost = document.querySelector("[data-selected-days]");
+            const savedDayShell = document.querySelector("[data-saved-day-shell]");
+            const savedDayEntriesHost = document.querySelector("[data-existing-day-entries]");
+            const pendingDayShell = document.querySelector("[data-pending-day-shell]");
+            const pendingDayEntriesHost = document.querySelector("[data-pending-day-entries]");
+            const clearSelectionButtons = document.querySelectorAll("[data-clear-selection]");
+            const editorEntryType = document.getElementById("editorEntryType");
+            const editorProjectId = document.getElementById("editorProjectId");
+            const editorProjectField = document.querySelector("[data-editor-project-field]");
+            const editorHours = document.getElementById("editorHours");
+            const editorDescription = document.getElementById("editorDescription");
+            const editorIsBillable = document.getElementById("editorIsBillable");
+            const editorError = document.querySelector("[data-editor-error]");
             const addEntryButton = document.querySelector("[data-add-entry]");
             const entries = entriesInput.value ? JSON.parse(entriesInput.value) : [];
+            let selectedDates = [];
+            let activeDate = null;
             let visibleDate = new Date();
 
             const hasWeekendProjects = projects.some((project) => project.AllowWeekendWork);
             const selectedEmployeeId = () => Number(employeeIdInput?.value || @Model.EmployeeId);
+            const formatHours = (value) => Number(value).toLocaleString("pt-PT", { maximumFractionDigits: 2 });
+
+            const escapeHtml = (value) => String(value ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#39;");
 
             const formatDate = (date) => {
                 const year = date.getFullYear();
@@ -183,19 +246,96 @@
                 month: "short",
                 year: "numeric"
             });
+            const displayCompactDate = (value) => parseDate(value).toLocaleDateString("pt-PT", {
+                day: "2-digit",
+                month: "short"
+            });
 
             const entryTypeLabel = (value) => entryTypes.find((item) => item.Value === value)?.Text ?? value;
-            const taskLabel = (entry) => `${entryTypeLabel(entry.entryType)} · ${entry.hours}h`;
+            const projectFor = (projectId) => projects.find((item) => item.Id === Number(projectId));
+            const entryVisuals = (entry) => {
+                const project = projectFor(entry.projectId ?? entry.ProjectId);
+                const projectName = project?.Name || entry.ProjectName || entryTypeLabel(entry.entryType ?? entry.EntryType);
+                const projectColor = project?.ColorHex || entry.ProjectColorHex || fallbackColor;
+                const type = entry.entryType ?? entry.EntryType;
+                return { projectName, projectColor, type };
+            };
+
             const currentExistingEntries = () => existingEntries.filter((entry) => entry.EmployeeId === selectedEmployeeId());
             const currentPendingEntries = () => entries.filter((entry) => entry.employeeId === undefined || Number(entry.employeeId) === selectedEmployeeId());
+            const sortedSelectedDates = () => [...selectedDates].sort();
+            const hasSelection = () => selectedDates.length > 0;
+            const weekendSelected = () => sortedSelectedDates().some((value) => isWeekend(parseDate(value)));
 
-            const syncEntries = () => {
-                entriesInput.value = JSON.stringify(entries);
-                submitButton.disabled = entries.length === 0;
-                pendingEntries.innerHTML = "";
+            const resetComposer = () => {
+                editorEntryType.value = "Work";
+                editorProjectId.value = "";
+                editorHours.value = "";
+                editorDescription.value = "";
+                editorIsBillable.checked = true;
+                editorError.hidden = true;
+                editorError.textContent = "";
+                populateProjectOptions();
+                syncEditorType();
+            };
+
+            const syncEditorType = () => {
+                const isWork = editorEntryType.value === "Work";
+                editorProjectField.hidden = !isWork;
+
+                if (!isWork) {
+                    editorProjectId.value = "";
+                    editorIsBillable.checked = false;
+                    editorIsBillable.disabled = true;
+                } else {
+                    editorIsBillable.disabled = false;
+                }
+
+                addEntryButton.disabled = !hasSelection();
+                addEntryButton.textContent = !hasSelection()
+                    ? "Seleciona dias"
+                    : selectedDates.length === 1
+                        ? "Adicionar ao dia"
+                        : `Adicionar aos ${selectedDates.length} dias`;
+            };
+
+            const populateProjectOptions = () => {
+                const previousValue = editorProjectId.value;
+                const mustAllowWeekend = weekendSelected();
+
+                editorProjectId.innerHTML = '<option value="">Seleciona um projeto</option>';
+
+                projects
+                    .filter((project) => !mustAllowWeekend || project.AllowWeekendWork)
+                    .forEach((project) => {
+                        const option = document.createElement("option");
+                        option.value = project.Id;
+                        option.textContent = `${project.Name} (${project.ClientName})`;
+                        editorProjectId.appendChild(option);
+                    });
+
+                if ([...editorProjectId.options].some((option) => option.value === previousValue)) {
+                    editorProjectId.value = previousValue;
+                }
+
+            };
+
+            const removePendingEntry = (entry) => {
+                const index = entries.indexOf(entry);
+                if (index >= 0) {
+                    entries.splice(index, 1);
+                }
+
+                syncEntries();
+                renderEditor();
+                renderCalendar();
+            };
+
+            const renderPendingPreview = () => {
+                pendingEntriesHost.innerHTML = "";
 
                 if (entries.length === 0) {
-                    pendingEntries.innerHTML = '<p class="empty-state mb-0">Ainda não adicionaste nenhum registo. Clica num dia do calendário para começar.</p>';
+                    pendingEntriesHost.innerHTML = '<p class="empty-state mb-0">Ainda não adicionaste nenhum registo. Seleciona dias e cria o primeiro lançamento.</p>';
                     return;
                 }
 
@@ -203,72 +343,164 @@
                     .slice()
                     .sort((a, b) => a.workDate.localeCompare(b.workDate))
                     .forEach((entry) => {
-                        const project = projects.find((item) => item.Id === entry.projectId);
+                        const { projectName, projectColor, type } = entryVisuals(entry);
                         const card = document.createElement("article");
                         card.className = "pending-entry-item";
                         card.innerHTML = `
                             <div>
-                                <strong>${displayDate(entry.workDate)}</strong>
-                                <p><span class="project-dot" style="background:${project?.ColorHex || "#0F766E"}"></span>${project?.Name || entryTypeLabel(entry.entryType)} · ${entry.hours}h</p>
-                                <p>${entry.description}</p>
+                                <strong>${escapeHtml(displayDate(entry.workDate))}</strong>
+                                <p><span class="project-dot" style="background:${escapeHtml(projectColor)}"></span>${escapeHtml(projectName)} · ${escapeHtml(formatHours(entry.hours))}h</p>
+                                <p>${escapeHtml(entryTypeLabel(type))} · ${escapeHtml(entry.description)}</p>
                             </div>
                             <button type="button" class="btn btn-sm btn-outline-danger">Remover</button>
                         `;
+
                         card.querySelector("button").addEventListener("click", () => {
-                            const index = entries.indexOf(entry);
-                            entries.splice(index, 1);
-                            syncEntries();
-                            renderCalendar();
+                            removePendingEntry(entry);
                         });
-                        pendingEntries.appendChild(card);
+
+                        pendingEntriesHost.appendChild(card);
                     });
             };
 
-            const populateProjectOptions = (date) => {
-                const weekend = isWeekend(date);
-                modalProjectId.innerHTML = '<option value="">Seleciona um projeto</option>';
-                projects
-                    .filter((project) => !weekend || project.AllowWeekendWork)
-                    .forEach((project) => {
-                        const option = document.createElement("option");
-                        option.value = project.Id;
-                        option.textContent = `${project.Name} (${project.ClientName})`;
-                        modalProjectId.appendChild(option);
-                    });
-
-                weekendHint.hidden = !weekend;
+            const syncEntries = () => {
+                entriesInput.value = JSON.stringify(entries);
+                submitButton.disabled = entries.length === 0;
+                renderPendingPreview();
             };
 
-            const syncModalEntryType = () => {
-                const isWork = modalEntryType.value === "Work";
-                modalProjectField.hidden = !isWork;
+            const renderSelectionChips = () => {
+                selectedDaysHost.innerHTML = "";
 
-                if (!isWork) {
-                    modalProjectId.value = "";
-                    modalIsBillable.checked = false;
-                    modalIsBillable.disabled = true;
-                } else {
-                    modalIsBillable.disabled = false;
+                if (!hasSelection()) {
+                    selectedDaysHost.innerHTML = '<p class="empty-state mb-0">Nenhum dia selecionado.</p>';
+                    return;
                 }
+
+                sortedSelectedDates().forEach((value) => {
+                    const chip = document.createElement("button");
+                    chip.type = "button";
+                    chip.className = "selection-chip";
+                    chip.innerHTML = `
+                        <span>${escapeHtml(displayCompactDate(value))}</span>
+                        <span aria-hidden="true">×</span>
+                    `;
+                    chip.addEventListener("click", () => toggleSelectedDate(value));
+                    selectedDaysHost.appendChild(chip);
+                });
             };
 
-            const openModal = (date) => {
-                modalError.hidden = true;
-                modalError.textContent = "";
-                modalWorkDate.value = formatDate(date);
-                modalTitle.textContent = `Adicionar horas em ${displayDate(modalWorkDate.value)}`;
-                modalEntryType.value = "Work";
-                modalHours.value = "";
-                modalDescription.value = "";
-                modalIsBillable.checked = true;
-                populateProjectOptions(date);
-                syncModalEntryType();
-                modal.show();
+            const renderDayEntries = (host, items, options = {}) => {
+                host.innerHTML = "";
+
+                if (items.length === 0) {
+                    host.innerHTML = `<p class="empty-state mb-0">${escapeHtml(options.emptyText || "Sem registos neste dia.")}</p>`;
+                    return;
+                }
+
+                items.forEach((entry) => {
+                    const { projectName, projectColor, type } = entryVisuals(entry);
+                    const article = document.createElement("article");
+                    article.className = "day-entry-item";
+
+                    const actions = options.includeEdit
+                        ? `<a class="btn btn-sm btn-outline-secondary" href="${escapeHtml(`${editBaseUrl}/${entry.Id}`)}">Editar</a>`
+                        : `<button type="button" class="btn btn-sm btn-outline-danger" data-remove-pending>Remover</button>`;
+
+                    article.innerHTML = `
+                        <div>
+                            <strong>${escapeHtml(projectName)} · ${escapeHtml(formatHours(entry.hours ?? entry.Hours))}h</strong>
+                            <p><span class="project-dot" style="background:${escapeHtml(projectColor)}"></span>${escapeHtml(entryTypeLabel(type))}</p>
+                            <p>${escapeHtml(entry.description ?? entry.Description)}</p>
+                        </div>
+                        <div class="day-entry-actions">${actions}</div>
+                    `;
+
+                    if (!options.includeEdit) {
+                        article.querySelector("[data-remove-pending]").addEventListener("click", () => {
+                            removePendingEntry(entry);
+                        });
+                    }
+
+                    host.appendChild(article);
+                });
             };
 
-            modalElement.addEventListener("shown.bs.modal", () => {
-                modalProjectId.focus();
-            });
+            const renderEditor = () => {
+                const totalSelected = selectedDates.length;
+                const currentDate = totalSelected === 1 ? selectedDates[0] : activeDate;
+                let summaryText = "Clica num dia do calendário para começar.";
+
+                selectionTitle.textContent = !hasSelection()
+                    ? "Seleciona pelo menos um dia"
+                    : totalSelected === 1
+                        ? displayDate(selectedDates[0])
+                        : `${totalSelected} dias selecionados`;
+
+                if (hasSelection()) {
+                    summaryText = totalSelected === 1
+                        ? "Vês abaixo o que já foi registado neste dia e podes acrescentar novos lançamentos."
+                        : "O formulário abaixo vai criar um registo igual em todos os dias selecionados.";
+                }
+
+                clearSelectionButtons.forEach((button) => {
+                    button.disabled = !hasSelection();
+                });
+
+                renderSelectionChips();
+                populateProjectOptions();
+                syncEditorType();
+                selectionSummary.textContent = summaryText;
+
+                if (totalSelected !== 1 || !currentDate) {
+                    savedDayShell.hidden = true;
+                    pendingDayShell.hidden = true;
+                    return;
+                }
+
+                const savedEntries = currentExistingEntries().filter((entry) => entry.WorkDate.startsWith(currentDate));
+                const pendingEntriesForDay = currentPendingEntries().filter((entry) => entry.workDate === currentDate);
+
+                savedDayShell.hidden = savedEntries.length === 0;
+                pendingDayShell.hidden = pendingEntriesForDay.length === 0;
+
+                if (savedEntries.length === 0 && pendingEntriesForDay.length === 0) {
+                    summaryText = "Este dia ainda não tem registos. Usa o formulário abaixo para criar o primeiro lançamento.";
+                } else if (savedEntries.length === 0) {
+                    summaryText = "Ainda não existem registos guardados neste dia. Podes rever os pendentes abaixo ou adicionar novos.";
+                } else if (pendingEntriesForDay.length === 0) {
+                    summaryText = "Este dia já tem registos guardados. Se quiseres, podes acrescentar novos lançamentos abaixo.";
+                }
+
+                renderDayEntries(savedDayEntriesHost, savedEntries, {
+                    includeEdit: true,
+                    emptyText: "Ainda não existem registos guardados neste dia."
+                });
+
+                renderDayEntries(pendingDayEntriesHost, pendingEntriesForDay, {
+                    includeEdit: false,
+                    emptyText: "Ainda não existem registos pendentes neste dia."
+                });
+
+                selectionSummary.textContent = summaryText;
+            };
+
+            const toggleSelectedDate = (value) => {
+                if (selectedDates.includes(value)) {
+                    selectedDates = selectedDates.filter((item) => item !== value);
+                    if (activeDate === value) {
+                        activeDate = selectedDates[selectedDates.length - 1] ?? null;
+                    }
+                } else {
+                    selectedDates = [...selectedDates, value].sort();
+                    activeDate = value;
+                }
+
+                editorError.hidden = true;
+                editorError.textContent = "";
+                renderEditor();
+                renderCalendar();
+            };
 
             const renderCalendar = () => {
                 daysContainer.innerHTML = "";
@@ -293,43 +525,55 @@
                         <span class="calendar-day-events"></span>
                     `;
 
+                    if (day.getMonth() !== visibleDate.getMonth()) {
+                        button.classList.add("is-muted");
+                    }
+
+                    if (selectedDates.includes(value)) {
+                        button.classList.add("is-selected");
+                    }
+
+                    if (activeDate === value) {
+                        button.classList.add("is-active");
+                    }
+
                     const eventsHost = button.querySelector(".calendar-day-events");
                     const dayEntries = [
                         ...currentExistingEntries()
                             .filter((entry) => entry.WorkDate.startsWith(value))
                             .map((entry) => ({
-                                workDate: value,
-                                entryType: entry.EntryType,
-                                projectId: entry.ProjectId,
-                                hours: entry.Hours,
-                                description: entry.Description,
+                                ProjectId: entry.ProjectId,
+                                ProjectColorHex: entry.ProjectColorHex,
+                                ProjectName: entry.ProjectName,
+                                Hours: entry.Hours,
+                                Description: entry.Description,
+                                EntryType: entry.EntryType,
                                 source: "saved"
                             })),
                         ...currentPendingEntries()
                             .filter((entry) => entry.workDate === value)
                             .map((entry) => ({
-                                ...entry,
+                                projectId: entry.projectId,
+                                hours: entry.hours,
+                                description: entry.description,
+                                entryType: entry.entryType,
                                 source: "pending"
                             }))
-                    ].sort((a, b) => Number(a.projectId) - Number(b.projectId));
-
-                    if (day.getMonth() !== visibleDate.getMonth()) {
-                        button.classList.add("is-muted");
-                    }
+                    ];
 
                     if (dayEntries.length > 0) {
                         button.classList.add("has-entry");
 
-                        dayEntries.slice(0, 3).forEach((entry, entryIndex) => {
-                            const project = projects.find((item) => item.Id === entry.projectId);
+                        dayEntries.slice(0, 3).forEach((entry) => {
+                            const { projectColor, type } = entryVisuals(entry);
                             const chip = document.createElement("span");
                             chip.className = "calendar-task-chip";
                             if (entry.source === "saved") {
                                 chip.classList.add("calendar-task-chip-saved");
                             }
-                            chip.style.setProperty("--task-color", project?.ColorHex || "#0F766E");
-                            chip.textContent = taskLabel(entry);
-                            chip.title = `${project?.Name || entryTypeLabel(entry.entryType)} · ${entry.description}`;
+                            chip.style.setProperty("--task-color", projectColor);
+                            chip.textContent = `${entryTypeLabel(type)} · ${formatHours(entry.hours ?? entry.Hours)}h`;
+                            chip.title = `${entryTypeLabel(type)} · ${entry.description ?? entry.Description}`;
                             eventsHost.appendChild(chip);
                         });
 
@@ -346,60 +590,90 @@
                         button.disabled = true;
                         button.title = "Sem projetos permitidos ao fim de semana";
                     } else {
-                        button.addEventListener("click", () => openModal(day));
+                        button.addEventListener("click", () => toggleSelectedDate(value));
                     }
 
                     daysContainer.appendChild(button);
                 }
             };
 
-            addEntryButton.addEventListener("click", () => {
-                const selectedEntryType = modalEntryType.value;
-                const selectedProjectId = Number(modalProjectId.value);
-                const selectedDate = parseDate(modalWorkDate.value);
+            const validateSelection = () => {
+                const selectedEntryType = editorEntryType.value;
+                const selectedProjectId = Number(editorProjectId.value);
                 const selectedProject = projects.find((project) => project.Id === selectedProjectId);
-                const hours = Number(modalHours.value);
-                const description = modalDescription.value.trim();
-                const existingDayHours = currentExistingEntries()
-                    .filter((entry) => entry.WorkDate.startsWith(modalWorkDate.value))
-                    .reduce((total, entry) => total + Number(entry.Hours), 0);
-                const pendingDayHours = currentPendingEntries()
-                    .filter((entry) => entry.workDate === modalWorkDate.value)
-                    .reduce((total, entry) => total + Number(entry.hours), 0);
+                const hours = Number(editorHours.value);
+                const description = editorDescription.value.trim();
 
-                modalError.hidden = true;
-                modalError.textContent = "";
+                editorError.hidden = true;
+                editorError.textContent = "";
 
-                if (selectedEntryType === "Work" && !selectedProject) {
-                    modalError.textContent = "Seleciona um projeto.";
-                } else if (selectedEntryType === "Work" && isWeekend(selectedDate) && !selectedProject.AllowWeekendWork) {
-                    modalError.textContent = "Este projeto não permite trabalho ao fim de semana.";
+                if (!hasSelection()) {
+                    editorError.textContent = "Seleciona pelo menos um dia.";
+                } else if (selectedEntryType === "Work" && !selectedProject) {
+                    editorError.textContent = "Seleciona um projeto.";
                 } else if (!Number.isFinite(hours) || hours < 0.25 || hours > 12) {
-                    modalError.textContent = "As horas têm de estar entre 0,25h e 12h.";
-                } else if (existingDayHours + pendingDayHours + hours > 12) {
-                    modalError.textContent = "O total deste dia não pode ultrapassar 12h.";
+                    editorError.textContent = "As horas têm de estar entre 0,25h e 12h.";
                 } else if (!description) {
-                    modalError.textContent = "Escreve uma descrição.";
+                    editorError.textContent = "Escreve uma descrição.";
                 }
 
-                if (modalError.textContent) {
-                    modalError.hidden = false;
+                if (editorError.textContent) {
+                    editorError.hidden = false;
+                    return null;
+                }
+
+                for (const workDate of sortedSelectedDates()) {
+                    const date = parseDate(workDate);
+                    const existingDayHours = currentExistingEntries()
+                        .filter((entry) => entry.WorkDate.startsWith(workDate))
+                        .reduce((total, entry) => total + Number(entry.Hours), 0);
+                    const pendingDayHours = currentPendingEntries()
+                        .filter((entry) => entry.workDate === workDate)
+                        .reduce((total, entry) => total + Number(entry.hours), 0);
+
+                    if (selectedEntryType === "Work" && isWeekend(date) && !selectedProject.AllowWeekendWork) {
+                        editorError.textContent = `O projeto selecionado não permite registos em ${displayDate(workDate)}.`;
+                    } else if (existingDayHours + pendingDayHours + hours > 12) {
+                        editorError.textContent = `O total de ${displayDate(workDate)} não pode ultrapassar 12h.`;
+                    }
+
+                    if (editorError.textContent) {
+                        editorError.hidden = false;
+                        return null;
+                    }
+                }
+
+                return {
+                    selectedEntryType,
+                    selectedProjectId,
+                    hours,
+                    description,
+                    isBillable: selectedEntryType === "Work" && editorIsBillable.checked
+                };
+            };
+
+            addEntryButton.addEventListener("click", () => {
+                const payload = validateSelection();
+                if (!payload) {
                     return;
                 }
 
-                entries.push({
-                    employeeId: selectedEmployeeId(),
-                    entryType: selectedEntryType,
-                    workDate: modalWorkDate.value,
-                    projectId: selectedEntryType === "Work" ? selectedProjectId : null,
-                    hours,
-                    description,
-                    isBillable: selectedEntryType === "Work" && modalIsBillable.checked
+                sortedSelectedDates().forEach((workDate) => {
+                    entries.push({
+                        employeeId: selectedEmployeeId(),
+                        entryType: payload.selectedEntryType,
+                        workDate,
+                        projectId: payload.selectedEntryType === "Work" ? payload.selectedProjectId : null,
+                        hours: payload.hours,
+                        description: payload.description,
+                        isBillable: payload.isBillable
+                    });
                 });
 
                 syncEntries();
+                renderEditor();
                 renderCalendar();
-                modal.hide();
+                resetComposer();
             });
 
             picker.querySelector("[data-calendar-prev]").addEventListener("click", () => {
@@ -412,14 +686,30 @@
                 renderCalendar();
             });
 
-            modalEntryType.addEventListener("change", syncModalEntryType);
+            editorEntryType.addEventListener("change", syncEditorType);
+            clearSelectionButtons.forEach((button) => {
+                button.addEventListener("click", () => {
+                    selectedDates = [];
+                    activeDate = null;
+                    editorError.hidden = true;
+                    editorError.textContent = "";
+                    renderEditor();
+                    renderCalendar();
+                });
+            });
+
             employeeIdInput?.addEventListener("change", () => {
                 entries.length = 0;
+                selectedDates = [];
+                activeDate = null;
                 syncEntries();
+                renderEditor();
                 renderCalendar();
             });
 
+            resetComposer();
             syncEntries();
+            renderEditor();
             renderCalendar();
         })();
     </script>

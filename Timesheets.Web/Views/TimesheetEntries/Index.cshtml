@@ -1,87 +1,117 @@
+@using System.Text.Json
 @model TimesheetEntriesIndexViewModel
 
 @{
     ViewData["Title"] = "Registos de horas";
+    var pdfMonthLookupJson = JsonSerializer.Serialize(Model.PdfMonthLookup);
 }
 
 <section class="page-header">
-    <div>
+    <div class="page-header-copy">
         <p class="eyebrow">Operação</p>
         <h1>@(Model.CanChooseEmployee ? "Registos de horas" : "As minhas horas")</h1>
-        <p class="page-intro">@(Model.CanChooseEmployee
-            ? "Filtra rapidamente por colaborador, projeto ou período para analisar o trabalho da equipa."
-            : "Consulta os teus registos por projeto e período.")</p>
     </div>
     <div class="page-actions">
         <a class="btn btn-primary simple-action-button" asp-action="Create">Novo registo</a>
-        <a class="btn btn-outline-secondary" asp-action="ReportPdf" asp-route-employeeId="@Model.EmployeeId" asp-route-projectId="@Model.ProjectId" asp-route-fromDate="@Model.FromDate?.ToString("yyyy-MM-dd")" asp-route-toDate="@Model.ToDate?.ToString("yyyy-MM-dd")">PDF relatório</a>
     </div>
 </section>
 
-<div class="card-surface filter-shell">
-    <form method="get" class="row g-3 align-items-end">
-        @if (Model.CanChooseEmployee)
-        {
-            <div class="col-md-3">
-                <label class="form-label" asp-for="EmployeeId">Colaborador</label>
-                <select asp-for="EmployeeId" asp-items="Model.Employees" class="form-select">
+<section class="control-grid">
+    <div class="card-surface filter-shell">
+        <div class="compact-card-heading">
+            <div>
+                <p class="eyebrow">Filtro</p>
+                <h2>Filtros</h2>
+            </div>
+        </div>
+
+        <form method="get" class="filter-grid">
+            @if (Model.CanChooseEmployee)
+            {
+                <div class="filter-field">
+                    <label class="form-label" asp-for="EmployeeId">Colaborador</label>
+                    <select asp-for="EmployeeId" asp-items="Model.Employees" class="form-select">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+            }
+            else
+            {
+                <input asp-for="EmployeeId" type="hidden" />
+            }
+            <div class="filter-field">
+                <label class="form-label" asp-for="ProjectId">Projeto</label>
+                <select asp-for="ProjectId" asp-items="Model.Projects" class="form-select">
                     <option value="">Todos</option>
                 </select>
             </div>
-        }
-        else
-        {
-            <input asp-for="EmployeeId" type="hidden" />
-        }
-        <div class="col-md-3">
-            <label class="form-label" asp-for="ProjectId">Projeto</label>
-            <select asp-for="ProjectId" asp-items="Model.Projects" class="form-select">
-                <option value="">Todos</option>
-            </select>
-        </div>
-        <div class="col-md-2">
-            <label class="form-label" asp-for="FromDate">De</label>
-            <input asp-for="FromDate" class="form-control" type="date" />
-        </div>
-        <div class="col-md-2">
-            <label class="form-label" asp-for="ToDate">Até</label>
-            <input asp-for="ToDate" class="form-control" type="date" />
-        </div>
-        <div class="col-md-2 d-flex gap-2">
-            <button type="submit" class="btn btn-primary w-100">Filtrar</button>
-            <a asp-action="Index" class="btn btn-outline-secondary">Limpar</a>
-        </div>
-    </form>
-</div>
+            <div class="filter-field">
+                <label class="form-label" asp-for="FromDate">De</label>
+                <input asp-for="FromDate" class="form-control" type="date" />
+            </div>
+            <div class="filter-field">
+                <label class="form-label" asp-for="ToDate">Até</label>
+                <input asp-for="ToDate" class="form-control" type="date" />
+            </div>
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-primary">Filtrar</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Limpar</a>
+            </div>
+        </form>
+    </div>
 
-<div class="card-surface filter-shell">
-    <form method="get" asp-action="MonthlyPdf" class="row g-3 align-items-end">
-        @if (Model.CanChooseEmployee)
-        {
-            <input type="hidden" name="employeeId" value="@Model.EmployeeId" />
-        }
-        <div class="col-md-4">
-            <label class="form-label" for="month">Mês completo</label>
-            <select id="month" name="month" class="form-select" @(Model.CanGenerateMonthlyPdf ? null : "disabled")>
-                @if (Model.CompletedMonths.Count == 0)
+    <section class="card-surface export-shell">
+        <div class="compact-card-heading">
+            <div>
+                <p class="eyebrow">Exportação</p>
+                <h2>PDFs</h2>
+            </div>
+        </div>
+
+        <div class="export-grid">
+            <form method="get" asp-action="MonthlyPdf" class="export-form">
+                @if (Model.CanChooseEmployee)
                 {
-                    <option value="">Sem meses disponíveis</option>
+                    <div class="export-field">
+                        <label class="form-label" for="pdfEmployeeId">Colaborador</label>
+                        <select id="pdfEmployeeId" name="employeeId" class="form-select" data-pdf-employee-select>
+                            @foreach (var employee in Model.PdfEmployees)
+                            {
+                                <option value="@employee.Value" selected="@(employee.Value == Model.PdfEmployeeId?.ToString() ? "selected" : null)">@employee.Text</option>
+                            }
+                        </select>
+                    </div>
                 }
                 else
                 {
-                    @foreach (var month in Model.CompletedMonths)
-                    {
-                        <option value="@month.Value" selected="@(month.Value == Model.SelectedMonth ? "selected" : null)">@month.Text</option>
-                    }
+                    <input type="hidden" name="employeeId" value="@Model.PdfEmployeeId" />
                 }
-            </select>
-            <p class="form-hint">@Model.MonthlyPdfHelpText</p>
+
+                <div class="export-field">
+                    <label class="form-label" for="month">Mês completo</label>
+                    <select id="month" name="month" class="form-select" data-pdf-month-select @(Model.CanGenerateMonthlyPdf ? null : "disabled")>
+                        @if (Model.CompletedMonths.Count == 0)
+                        {
+                            <option value="">Sem meses disponíveis</option>
+                        }
+                        else
+                        {
+                            @foreach (var month in Model.CompletedMonths)
+                            {
+                                <option value="@month.Value" selected="@(month.Value == Model.SelectedMonth ? "selected" : null)">@month.Text</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div class="export-actions export-actions-stack">
+                    <button type="submit" class="btn btn-primary simple-action-button" data-pdf-submit @(Model.CanGenerateMonthlyPdf ? null : "disabled")>PDF mensal</button>
+                    <a class="btn btn-outline-secondary simple-action-button" asp-action="ReportPdf" asp-route-employeeId="@Model.EmployeeId" asp-route-projectId="@Model.ProjectId" asp-route-fromDate="@Model.FromDate?.ToString("yyyy-MM-dd")" asp-route-toDate="@Model.ToDate?.ToString("yyyy-MM-dd")">PDF relatório</a>
+                </div>
+            </form>
         </div>
-        <div class="col-md-3">
-            <button type="submit" class="btn btn-primary w-100" @(Model.CanGenerateMonthlyPdf ? null : "disabled")>PDF mensal</button>
-        </div>
-    </form>
-</div>
+    </section>
+</section>
 
 <section class="stats-grid compact-stats">
     <article class="stat-card">
@@ -151,3 +181,47 @@
         </table>
     }
 </div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const lookup = @Html.Raw(pdfMonthLookupJson);
+            const employeeSelect = document.querySelector('[data-pdf-employee-select]');
+            const monthSelect = document.querySelector('[data-pdf-month-select]');
+            const submitButton = document.querySelector('[data-pdf-submit]');
+            const selectedMonth = '@Model.SelectedMonth';
+            const canChooseEmployee = @(Model.CanChooseEmployee ? "true" : "false");
+
+            if (!monthSelect || !submitButton || !canChooseEmployee) {
+                return;
+            }
+
+            const noMonthsLabel = 'Sem meses disponíveis';
+
+            const renderMonths = () => {
+                const employeeId = employeeSelect?.value ?? '';
+                const months = lookup.find(item => String(item.EmployeeId) === employeeId)?.Months ?? [];
+                const preferredValue = monthSelect.value || selectedMonth;
+
+                monthSelect.innerHTML = '';
+
+                if (months.length === 0) {
+                    monthSelect.append(new Option(noMonthsLabel, ''));
+                    monthSelect.disabled = true;
+                    submitButton.disabled = true;
+                } else {
+                    months.forEach((month, index) => {
+                        const option = new Option(month.Text, month.Value, false, month.Value === preferredValue || (!preferredValue && index === 0));
+                        monthSelect.append(option);
+                    });
+
+                    monthSelect.disabled = false;
+                    submitButton.disabled = false;
+                }
+            };
+
+            employeeSelect?.addEventListener('change', renderMonths);
+            renderMonths();
+        })();
+    </script>
+}
