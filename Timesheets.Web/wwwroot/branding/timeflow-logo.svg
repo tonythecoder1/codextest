@@ -1,0 +1,17 @@
+<svg width="468" height="120" viewBox="0 0 468 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="timeflowOuter" x1="11" y1="16" x2="112" y2="108" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5F7652"/>
+      <stop offset="0.55" stop-color="#739163"/>
+      <stop offset="1" stop-color="#A89F67"/>
+    </linearGradient>
+    <linearGradient id="timeflowInner" x1="31" y1="26" x2="95" y2="95" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D6A164"/>
+      <stop offset="1" stop-color="#E4B47A"/>
+    </linearGradient>
+  </defs>
+  <path d="M64.124 4.84029C81.7945 5.18885 98.4521 12.0712 109.047 24.6216C119.183 36.6286 124.553 52.6552 123.224 68.4472C121.93 83.8198 113.96 98.3706 101.056 107.755C88.3227 117.015 71.6847 121.165 55.9002 118.438C39.1545 115.546 23.8038 105.792 15.4069 91.1352C7.45691 77.2589 5.91776 60.1066 10.4248 44.5656C14.9875 28.8327 25.8174 14.6978 41.0602 8.34929C48.2349 5.36149 56.1825 4.6836 64.124 4.84029Z" fill="url(#timeflowOuter)"/>
+  <path d="M61.4037 18.1318C74.7389 18.7822 87.7927 23.9711 95.9547 34.6728C103.36 44.3829 107.18 56.811 106.159 68.9468C105.166 80.7526 99.4335 91.8734 90.0128 99.1234C80.4716 106.466 67.6744 109.979 55.7135 107.702C43.3022 105.34 31.8298 98.0487 25.6013 87.0627C19.5768 76.4365 18.5439 63.4451 21.8326 51.6013C25.1038 39.8207 32.9881 29.1239 44.4555 23.9586C49.5884 21.6472 55.7207 17.8526 61.4037 18.1318Z" fill="url(#timeflowInner)"/>
+  <text x="145" y="60" fill="#6A8A60" font-family="'Avenir Next', 'Segoe UI', system-ui, sans-serif" font-size="56" font-weight="600" letter-spacing="-1.8">TimeFlow</text>
+  <text x="148" y="85" fill="#7A8A66" font-family="'Avenir Next', 'Segoe UI', system-ui, sans-serif" font-size="18" font-weight="600" letter-spacing="0.2">By Savana</text>
+</svg>

@@ -22,6 +22,28 @@ public static class SeedData
                     PasswordHash = PasswordHasher.Hash("admin123")
                 });
             }
+            else
+            {
+                admin.IsAdmin = true;
+            }
+
+            var secondaryAdmin = await context.Employees.FirstOrDefaultAsync(e => e.Email == "admin@admin.com");
+            if (secondaryAdmin is null)
+            {
+                context.Employees.Add(new Employee
+                {
+                    FullName = "Admin",
+                    Email = "admin@admin.com",
+                    JobTitle = "Admin",
+                    IsAdmin = true,
+                    PasswordHash = PasswordHasher.Hash("admin")
+                });
+            }
+            else
+            {
+                secondaryAdmin.IsAdmin = true;
+                secondaryAdmin.PasswordHash = PasswordHasher.Hash("admin");
+            }
 
             var testUser = await context.Employees.FirstOrDefaultAsync(e => e.Email == "teste@teste.com");
             if (testUser is null)
@@ -58,6 +80,14 @@ public static class SeedData
                 JobTitle = "Admin",
                 IsAdmin = true,
                 PasswordHash = PasswordHasher.Hash("admin123")
+            },
+            new()
+            {
+                FullName = "Admin",
+                Email = "admin@admin.com",
+                JobTitle = "Admin",
+                IsAdmin = true,
+                PasswordHash = PasswordHasher.Hash("admin")
             },
             new()
             {

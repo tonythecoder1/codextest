@@ -62,32 +62,13 @@ body {
 .app-brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
   color: var(--text);
 }
 
-.brand-copy {
-  display: grid;
-  line-height: 1.05;
-}
-
-.brand-copy small {
-  font-size: 0.62rem;
-  letter-spacing: 0.18em;
-  color: var(--muted);
-}
-
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 2.5rem;
+.app-brand-logo {
+  display: block;
+  width: auto;
   height: 2.5rem;
-  border-radius: 0.9rem;
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent), var(--accent-soft));
-  box-shadow: 0 12px 32px rgba(var(--accent-rgb), 0.24);
 }
 
 .navbar .nav-link {
@@ -1009,14 +990,23 @@ body {
 }
 
 .footer {
-  padding: 1.5rem 0 2rem;
+  padding: 1.7rem 0 2.1rem;
 }
 
 .footer-content {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 1rem;
   color: var(--muted);
+}
+
+.footer-company-logo {
+  display: block;
+  width: auto;
+  height: clamp(2.8rem, 4vw, 4.2rem);
+  object-fit: contain;
+  mix-blend-mode: multiply;
 }
 
 .motion-ready .revealable {
@@ -1064,6 +1054,10 @@ body {
   .editor-form-grid,
   .export-form {
     grid-template-columns: 1fr;
+  }
+
+  .app-brand-logo {
+    height: 2.2rem;
   }
 
   .calendar-stage-title,
