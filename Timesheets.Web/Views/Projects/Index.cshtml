@@ -13,11 +13,13 @@
 </section>
 
 <div class="card-surface">
+    <div class="table-scroll">
     <table class="table app-table align-middle mb-0">
         <thead>
             <tr>
                 <th>Projeto</th>
                 <th>Cliente</th>
+                <th>Responsáveis</th>
                 <th>Fim de semana</th>
                 <th>Estado</th>
                 <th class="text-end">Ações</th>
@@ -32,6 +34,11 @@
                     @project.Name
                 </td>
                 <td>@project.ClientName</td>
+                <td>
+                    @(project.ResponsibleEmployees.Count == 0
+                        ? "—"
+                        : string.Join(", ", project.ResponsibleEmployees.OrderBy(employee => employee.FullName).Select(employee => employee.FullName)))
+                </td>
                 <td>
                     <span class="status-pill @(project.AllowWeekendWork ? "status-active" : "status-muted")">
                         @(project.AllowWeekendWork ? "Permitido" : "Bloqueado")
@@ -49,4 +56,5 @@
         }
         </tbody>
     </table>
+    </div>
 </div>

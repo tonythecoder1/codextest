@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Timesheets.Web.Data;
@@ -11,9 +12,11 @@ using Timesheets.Web.Data;
 namespace Timesheets.Web.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260515194548_AddManagersAndApprovals")]
+    partial class AddManagersAndApprovals
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -35,56 +38,6 @@ namespace Timesheets.Web.Migrations
                     b.HasIndex("ResponsibleEmployeesId");
 
                     b.ToTable("ProjectResponsibles", (string)null);
-                });
-
-            modelBuilder.Entity("Timesheets.Web.Models.AppNotification", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("EmailError")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<DateTime?>("EmailSentAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("EmployeeId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<DateTime?>("ReadAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(140)
-                        .HasColumnType("character varying(140)");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<string>("Url")
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EmployeeId", "ReadAt", "CreatedAt");
-
-                    b.ToTable("AppNotifications");
                 });
 
             modelBuilder.Entity("Timesheets.Web.Models.Employee", b =>
@@ -135,46 +88,6 @@ namespace Timesheets.Web.Migrations
                     b.HasIndex("ResponsibleId");
 
                     b.ToTable("Employees");
-                });
-
-            modelBuilder.Entity("Timesheets.Web.Models.PasswordResetToken", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("CreatedByEmployeeId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("EmployeeId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("TokenHash")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<DateTime?>("UsedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedByEmployeeId");
-
-                    b.HasIndex("TokenHash")
-                        .IsUnique();
-
-                    b.HasIndex("EmployeeId", "ExpiresAt", "UsedAt");
-
-                    b.ToTable("PasswordResetTokens");
                 });
 
             modelBuilder.Entity("Timesheets.Web.Models.Project", b =>
@@ -287,17 +200,6 @@ namespace Timesheets.Web.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Timesheets.Web.Models.AppNotification", b =>
-                {
-                    b.HasOne("Timesheets.Web.Models.Employee", "Employee")
-                        .WithMany("Notifications")
-                        .HasForeignKey("EmployeeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Employee");
-                });
-
             modelBuilder.Entity("Timesheets.Web.Models.Employee", b =>
                 {
                     b.HasOne("Timesheets.Web.Models.Employee", "Responsible")
@@ -306,24 +208,6 @@ namespace Timesheets.Web.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Responsible");
-                });
-
-            modelBuilder.Entity("Timesheets.Web.Models.PasswordResetToken", b =>
-                {
-                    b.HasOne("Timesheets.Web.Models.Employee", "CreatedByEmployee")
-                        .WithMany()
-                        .HasForeignKey("CreatedByEmployeeId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Timesheets.Web.Models.Employee", "Employee")
-                        .WithMany("PasswordResetTokens")
-                        .HasForeignKey("EmployeeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CreatedByEmployee");
-
-                    b.Navigation("Employee");
                 });
 
             modelBuilder.Entity("Timesheets.Web.Models.TimesheetEntry", b =>
@@ -354,10 +238,6 @@ namespace Timesheets.Web.Migrations
             modelBuilder.Entity("Timesheets.Web.Models.Employee", b =>
                 {
                     b.Navigation("ManagedEmployees");
-
-                    b.Navigation("Notifications");
-
-                    b.Navigation("PasswordResetTokens");
 
                     b.Navigation("TimesheetEntries");
                 });

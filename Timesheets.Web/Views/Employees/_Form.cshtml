@@ -19,6 +19,13 @@
         <span asp-validation-for="Email" class="text-danger"></span>
     </div>
     <div class="col-md-6">
+        <label asp-for="ResponsibleId" class="form-label"></label>
+        <select asp-for="ResponsibleId" asp-items="ViewBag.ResponsibleOptions" class="form-select">
+            <option value="">Sem responsável</option>
+        </select>
+        <span asp-validation-for="ResponsibleId" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
         <label asp-for="Password" class="form-label"></label>
         <input asp-for="Password" class="form-control" autocomplete="new-password" />
         <span asp-validation-for="Password" class="text-danger"></span>
@@ -29,10 +36,24 @@
             <label asp-for="IsActive" class="form-check-label"></label>
         </div>
     </div>
-    <div class="col-12">
-        <div class="form-check mt-2">
-            <input asp-for="IsAdmin" class="form-check-input" />
-            <label asp-for="IsAdmin" class="form-check-label"></label>
+    @if (ViewBag.CanSetPrivileges == true)
+    {
+        <div class="col-12">
+            <div class="form-check mt-2">
+                <input asp-for="IsManager" class="form-check-input" />
+                <label asp-for="IsManager" class="form-check-label"></label>
+            </div>
         </div>
-    </div>
+        <div class="col-12">
+            <div class="form-check mt-2">
+                <input asp-for="IsAdmin" class="form-check-input" />
+                <label asp-for="IsAdmin" class="form-check-label"></label>
+            </div>
+        </div>
+    }
+    else
+    {
+        <input asp-for="IsManager" type="hidden" />
+        <input asp-for="IsAdmin" type="hidden" />
+    }
 </div>

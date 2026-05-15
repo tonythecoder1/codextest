@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Timesheets.Web.Models;
 
@@ -27,5 +28,10 @@ public class Project
     [Display(Name = "Permite fim de semana")]
     public bool AllowWeekendWork { get; set; }
 
+    [NotMapped]
+    [Display(Name = "Responsáveis")]
+    public List<int> ResponsibleIds { get; set; } = [];
+
+    public ICollection<Employee> ResponsibleEmployees { get; set; } = new List<Employee>();
     public ICollection<TimesheetEntry> TimesheetEntries { get; set; } = new List<TimesheetEntry>();
 }

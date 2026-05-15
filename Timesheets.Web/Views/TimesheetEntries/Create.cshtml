@@ -63,16 +63,20 @@
                         <strong data-calendar-title></strong>
                         <button class="btn btn-outline-secondary btn-sm" type="button" data-calendar-next>Seguinte</button>
                     </div>
-                    <div class="calendar-weekdays">
-                        <span>Seg</span>
-                        <span>Ter</span>
-                        <span>Qua</span>
-                        <span>Qui</span>
-                        <span>Sex</span>
-                        <span>Sáb</span>
-                        <span>Dom</span>
+                    <div class="calendar-grid-shell">
+                        <div class="calendar-grid-inner">
+                            <div class="calendar-weekdays">
+                                <span>Seg</span>
+                                <span>Ter</span>
+                                <span>Qua</span>
+                                <span>Qui</span>
+                                <span>Sex</span>
+                                <span>Sáb</span>
+                                <span>Dom</span>
+                            </div>
+                            <div class="calendar-days" data-calendar-days></div>
+                        </div>
                     </div>
-                    <div class="calendar-days" data-calendar-days></div>
                 </div>
             </section>
 
@@ -85,7 +89,7 @@
                     <button type="button" class="btn btn-outline-secondary btn-sm" data-clear-selection disabled>Limpar</button>
                 </div>
 
-                <p class="editor-panel-note mb-0" data-selection-summary>Clica num dia do calendário para começar.</p>
+                <p class="editor-panel-note mb-0" data-selection-summary>Escolhe um dia.</p>
 
                 <div class="selection-chip-list" data-selected-days>
                     <p class="empty-state mb-0">Nenhum dia selecionado.</p>
@@ -155,6 +159,7 @@
 
                     <div class="editor-actions">
                         <button type="button" class="btn btn-primary" data-add-entry disabled>Adicionar à seleção</button>
+                        <button type="submit" class="btn btn-outline-secondary pending-save-button" data-submit-entries disabled>Guardar registos</button>
                     </div>
                 </section>
             </aside>
@@ -173,7 +178,6 @@
         </div>
 
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary" data-submit-entries disabled>Guardar registos</button>
             <a asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
         </div>
     </form>
@@ -366,6 +370,11 @@
             const syncEntries = () => {
                 entriesInput.value = JSON.stringify(entries);
                 submitButton.disabled = entries.length === 0;
+                submitButton.textContent = entries.length === 1
+                    ? "Guardar 1 registo"
+                    : entries.length > 1
+                        ? `Guardar ${entries.length} registos`
+                        : "Guardar registos";
                 renderPendingPreview();
             };
 
@@ -400,6 +409,10 @@
 
                 items.forEach((entry) => {
                     const { projectName, projectColor, type } = entryVisuals(entry);
+                    const approvalStatus = entry.approvalStatus ?? entry.ApprovalStatus;
+                    const approvalLabel = approvalStatus === "Approved" ? "Aprovado" : "Pendente";
+                    const approvalClass = approvalStatus === "Approved" ? "status-active" : "status-pending";
+                    const approvedBy = entry.approvedByEmployeeName ?? entry.ApprovedByEmployeeName;
                     const article = document.createElement("article");
                     article.className = "day-entry-item";
 
@@ -410,8 +423,12 @@
                     article.innerHTML = `
                         <div>
                             <strong>${escapeHtml(projectName)} · ${escapeHtml(formatHours(entry.hours ?? entry.Hours))}h</strong>
-                            <p><span class="project-dot" style="background:${escapeHtml(projectColor)}"></span>${escapeHtml(entryTypeLabel(type))}</p>
+                            <p class="day-entry-meta-row">
+                                <span><span class="project-dot" style="background:${escapeHtml(projectColor)}"></span>${escapeHtml(entryTypeLabel(type))}</span>
+                                ${options.includeEdit ? `<span class="status-pill ${approvalClass}">${approvalLabel}</span>` : ""}
+                            </p>
                             <p>${escapeHtml(entry.description ?? entry.Description)}</p>
+                            ${options.includeEdit && approvedBy ? `<p>Aprovado por ${escapeHtml(approvedBy)}</p>` : ""}
                         </div>
                         <div class="day-entry-actions">${actions}</div>
                     `;
@@ -429,7 +446,7 @@
             const renderEditor = () => {
                 const totalSelected = selectedDates.length;
                 const currentDate = totalSelected === 1 ? selectedDates[0] : activeDate;
-                let summaryText = "Clica num dia do calendário para começar.";
+                let summaryText = "Escolhe um dia.";
 
                 selectionTitle.textContent = !hasSelection()
                     ? "Seleciona pelo menos um dia"
@@ -439,8 +456,8 @@
 
                 if (hasSelection()) {
                     summaryText = totalSelected === 1
-                        ? "Vês abaixo o que já foi registado neste dia e podes acrescentar novos lançamentos."
-                        : "O formulário abaixo vai criar um registo igual em todos os dias selecionados.";
+                        ? "Vê os registos deste dia e adiciona novos."
+                        : "O lançamento será criado em todos os dias selecionados.";
                 }
 
                 clearSelectionButtons.forEach((button) => {
@@ -465,11 +482,11 @@
                 pendingDayShell.hidden = pendingEntriesForDay.length === 0;
 
                 if (savedEntries.length === 0 && pendingEntriesForDay.length === 0) {
-                    summaryText = "Este dia ainda não tem registos. Usa o formulário abaixo para criar o primeiro lançamento.";
+                    summaryText = "Este dia ainda não tem registos.";
                 } else if (savedEntries.length === 0) {
-                    summaryText = "Ainda não existem registos guardados neste dia. Podes rever os pendentes abaixo ou adicionar novos.";
+                    summaryText = "Ainda não existem registos guardados neste dia.";
                 } else if (pendingEntriesForDay.length === 0) {
-                    summaryText = "Este dia já tem registos guardados. Se quiseres, podes acrescentar novos lançamentos abaixo.";
+                    summaryText = "Este dia já tem registos guardados.";
                 }
 
                 renderDayEntries(savedDayEntriesHost, savedEntries, {

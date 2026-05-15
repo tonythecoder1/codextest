@@ -25,6 +25,10 @@
         <strong>@Model.ActiveProjects</strong>
     </article>
     <article class="stat-card">
+        <span class="stat-label">Pendentes</span>
+        <strong>@Model.PendingApprovals</strong>
+    </article>
+    <article class="stat-card">
         <span class="stat-label">Horas esta semana</span>
         <strong>@Model.HoursThisWeek.ToString("0.##")h</strong>
     </article>
@@ -57,8 +61,8 @@
                     <div>
                         <div class="entry-topline">
                             <strong>@entry.EmployeeName</strong>
-                            <span class="status-pill @(entry.IsBillable ? "status-active" : "status-muted")">
-                                @(entry.IsBillable ? "Faturável" : "Interno")
+                            <span class="status-pill @(entry.ApprovalStatus == TimesheetApprovalStatus.Approved ? "status-active" : "status-pending")">
+                                @entry.ApprovalStatus.ToDisplayName()
                             </span>
                         </div>
                         <p class="entry-meta">@entry.ProjectName · @entry.WorkDate.ToString("dd/MM/yyyy")</p>

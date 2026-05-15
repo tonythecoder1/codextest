@@ -9,6 +9,8 @@ public class TimesheetEntryFormViewModel
     public int? Id { get; set; }
 
     public bool CanChooseEmployee { get; set; }
+    public bool CanApprove { get; set; }
+    public TimesheetApprovalStatus ApprovalStatus { get; set; } = TimesheetApprovalStatus.Pending;
 
     [Required]
     [Range(1, int.MaxValue, ErrorMessage = "Seleciona um colaborador.")]

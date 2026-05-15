@@ -8,28 +8,33 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Timesheets.Web.Data;
 using Timesheets.Web.Models;
+using Timesheets.Web.Security;
 using Timesheets.Web.Services;
 using Timesheets.Web.ViewModels;
 
 namespace Timesheets.Web.Controllers;
 
 [Authorize]
-public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfService pdfService) : Controller
+public class TimesheetEntriesController(
+    AppDbContext context,
+    ITimesheetPdfService pdfService,
+    INotificationService notificationService) : Controller
 {
     public async Task<IActionResult> Index(int? employeeId, int? projectId, DateTime? fromDate, DateTime? toDate, int? pdfEmployeeId, string? selectedMonth)
     {
-        var isAdmin = IsAdmin();
-        if (!isAdmin)
+        var access = await GetAccessContextAsync();
+        if (!access.IsAdmin && !access.IsManager)
         {
-            employeeId = GetCurrentEmployeeId();
-            pdfEmployeeId = employeeId;
+            employeeId = access.CurrentEmployeeId;
         }
 
-        var query = context.TimesheetEntries
-            .AsNoTracking()
-            .Include(entry => entry.Employee)
-            .Include(entry => entry.Project)
-            .AsQueryable();
+        var query = ApplyEntryScope(
+            context.TimesheetEntries
+                .AsNoTracking()
+                .Include(entry => entry.Employee)
+                .Include(entry => entry.Project)
+                .Include(entry => entry.ApprovedByEmployee),
+            access);
 
         if (employeeId.HasValue)
         {
@@ -51,23 +56,21 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
             query = query.Where(entry => entry.WorkDate <= toDate.Value.Date);
         }
 
-        var employeeOptions = isAdmin
-            ? await GetEmployeeOptionsAsync(employeeId)
+        var employeeOptions = access.CanChooseEmployees
+            ? await GetEmployeeOptionsAsync(access, employeeId)
             : [];
 
-        var effectivePdfEmployeeId = pdfEmployeeId ?? employeeId;
-        if (isAdmin && !effectivePdfEmployeeId.HasValue)
-        {
-            effectivePdfEmployeeId = await context.Employees
+        var effectivePdfEmployeeId = access.IsAdmin
+            ? pdfEmployeeId ?? await context.Employees
                 .AsNoTracking()
                 .Where(employee => employee.IsActive)
                 .OrderBy(employee => employee.FullName)
                 .Select(employee => (int?)employee.Id)
-                .FirstOrDefaultAsync();
-        }
+                .FirstOrDefaultAsync()
+            : access.CurrentEmployeeId;
 
-        var pdfEmployeeOptions = isAdmin
-            ? await GetEmployeeOptionsAsync(effectivePdfEmployeeId)
+        var pdfEmployeeOptions = access.IsAdmin
+            ? await GetEmployeeOptionsAsync(access, effectivePdfEmployeeId)
             : [];
 
         var completedMonths = effectivePdfEmployeeId.HasValue
@@ -78,9 +81,63 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
             ? selectedMonth
             : completedMonths.FirstOrDefault()?.Value ?? string.Empty;
 
+        var entryRows = await query
+            .OrderByDescending(entry => entry.WorkDate)
+            .ThenByDescending(entry => entry.Id)
+            .Select(entry => new
+            {
+                entry.Id,
+                entry.WorkDate,
+                entry.EmployeeId,
+                EmployeeName = entry.Employee!.FullName,
+                ProjectName = entry.Project != null ? entry.Project.Name : "-",
+                ProjectColorHex = entry.Project != null ? entry.Project.ColorHex : "#6B8760",
+                entry.ProjectId,
+                entry.Hours,
+                entry.IsBillable,
+                entry.EntryType,
+                entry.Description,
+                entry.ApprovalStatus,
+                ApprovedByEmployeeName = entry.ApprovedByEmployee != null ? entry.ApprovedByEmployee.FullName : null,
+                entry.ApprovedAt
+            })
+            .ToListAsync();
+
+        var pendingApprovalRows = new List<TimesheetEntryListItemViewModel>();
+        if (access.CanApproveEntries)
+        {
+            pendingApprovalRows = await ApplyEntryScope(
+                    context.TimesheetEntries
+                        .AsNoTracking()
+                        .Include(entry => entry.Employee)
+                        .Include(entry => entry.Project),
+                    access)
+                .Where(entry => entry.ApprovalStatus == TimesheetApprovalStatus.Pending)
+                .OrderBy(entry => entry.WorkDate)
+                .ThenBy(entry => entry.Id)
+                .Select(entry => new TimesheetEntryListItemViewModel
+                {
+                    Id = entry.Id,
+                    EmployeeId = entry.EmployeeId,
+                    WorkDate = entry.WorkDate,
+                    EmployeeName = entry.Employee!.FullName,
+                    ProjectName = entry.Project != null ? entry.Project.Name : "-",
+                    ProjectColorHex = entry.Project != null ? entry.Project.ColorHex : "#6B8760",
+                    ProjectId = entry.ProjectId,
+                    Hours = entry.Hours,
+                    IsBillable = entry.IsBillable,
+                    EntryType = entry.EntryType,
+                    Description = entry.Description,
+                    ApprovalStatus = entry.ApprovalStatus
+                })
+                .ToListAsync();
+        }
+
         var model = new TimesheetEntriesIndexViewModel
         {
-            CanChooseEmployee = isAdmin,
+            CanChooseEmployee = access.CanChooseEmployees,
+            CanChoosePdfEmployee = access.IsAdmin,
+            CanApproveEntries = access.CanApproveEntries,
             EmployeeId = employeeId,
             ProjectId = projectId,
             FromDate = fromDate,
@@ -90,30 +147,41 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
             CompletedMonths = completedMonths,
             CanGenerateMonthlyPdf = effectivePdfEmployeeId.HasValue && completedMonths.Count > 0,
             MonthlyPdfHelpText = BuildMonthlyPdfHelpText(effectivePdfEmployeeId, completedMonths.Count),
-            TotalHours = await query.SumAsync(entry => (decimal?)entry.Hours) ?? 0m,
-            EntryCount = await query.CountAsync(),
-            Entries = await query
-                .OrderByDescending(entry => entry.WorkDate)
-                .ThenByDescending(entry => entry.Id)
-                .Select(entry => new TimesheetEntryListItemViewModel
-                {
-                    Id = entry.Id,
-                    WorkDate = entry.WorkDate,
-                    EmployeeName = entry.Employee!.FullName,
-                    ProjectName = entry.Project != null ? entry.Project.Name : "-",
-                    ProjectColorHex = entry.Project != null ? entry.Project.ColorHex : "#94A3B8",
-                    Hours = entry.Hours,
-                    IsBillable = entry.IsBillable,
-                    EntryType = entry.EntryType,
-                    Description = entry.Description
-                })
-                .ToListAsync(),
+            TotalHours = entryRows.Sum(entry => entry.Hours),
+            EntryCount = entryRows.Count,
             Employees = employeeOptions,
             PdfEmployees = pdfEmployeeOptions,
-            Projects = await GetProjectOptionsAsync(projectId)
+            Projects = await GetProjectOptionsAsync(projectId),
+            PendingApprovalEntries = pendingApprovalRows
+                .Where(entry => CanApproveEntry(access, entry.EmployeeId, entry.ProjectId, entry.ApprovalStatus))
+                .Take(8)
+                .Select(entry =>
+                {
+                    entry.CanApprove = true;
+                    return entry;
+                })
+                .ToList(),
+            Entries = entryRows.Select(entry => new TimesheetEntryListItemViewModel
+            {
+                Id = entry.Id,
+                EmployeeId = entry.EmployeeId,
+                ProjectId = entry.ProjectId,
+                WorkDate = entry.WorkDate,
+                EmployeeName = entry.EmployeeName,
+                ProjectName = entry.ProjectName,
+                ProjectColorHex = entry.ProjectColorHex,
+                Hours = entry.Hours,
+                IsBillable = entry.IsBillable,
+                EntryType = entry.EntryType,
+                ApprovalStatus = entry.ApprovalStatus,
+                ApprovedByEmployeeName = entry.ApprovedByEmployeeName,
+                ApprovedAt = entry.ApprovedAt,
+                CanApprove = CanApproveEntry(access, entry.EmployeeId, entry.ProjectId, entry.ApprovalStatus),
+                Description = entry.Description
+            }).ToList()
         };
 
-        if (isAdmin)
+        if (access.IsAdmin)
         {
             model.PdfMonthLookup = await GetPdfMonthLookupAsync(pdfEmployeeOptions);
         }
@@ -123,15 +191,16 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
 
     public async Task<IActionResult> Create()
     {
-        var isAdmin = IsAdmin();
+        var access = await GetAccessContextAsync();
         var model = new TimesheetEntryCreateViewModel
         {
-            CanChooseEmployee = isAdmin,
-            EmployeeId = isAdmin ? 0 : GetCurrentEmployeeId(),
-            Employees = isAdmin ? await GetEmployeeOptionsAsync() : [],
+            CanChooseEmployee = access.CanChooseEmployees,
+            IsManagerContext = access.IsManager,
+            EmployeeId = access.CanChooseEmployees ? access.CurrentEmployeeId : access.CurrentEmployeeId,
+            Employees = access.CanChooseEmployees ? await GetEmployeeOptionsAsync(access, access.CurrentEmployeeId) : [],
             Projects = await GetProjectCalendarOptionsAsync(),
             EntryTypes = GetEntryTypeOptions(),
-            ExistingEntries = await GetExistingCalendarEntriesAsync()
+            ExistingEntries = await GetExistingCalendarEntriesAsync(access)
         };
 
         return View(model);
@@ -141,12 +210,13 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(TimesheetEntryCreateViewModel model)
     {
-        var isAdmin = IsAdmin();
-        model.CanChooseEmployee = isAdmin;
+        var access = await GetAccessContextAsync();
+        model.CanChooseEmployee = access.CanChooseEmployees;
+        model.IsManagerContext = access.IsManager;
 
-        if (!isAdmin)
+        if (!access.CanChooseEmployees)
         {
-            model.EmployeeId = GetCurrentEmployeeId();
+            model.EmployeeId = access.CurrentEmployeeId;
             ModelState.Remove(nameof(model.EmployeeId));
         }
 
@@ -156,16 +226,11 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
             ModelState.AddModelError(nameof(model.EntriesJson), "Adiciona pelo menos um registo através do calendário.");
         }
 
-        await ValidateCreateEntriesAsync(model.EmployeeId, entries);
-
-        if (!await context.Employees.AnyAsync(employee => employee.Id == model.EmployeeId && employee.IsActive))
-        {
-            ModelState.AddModelError(nameof(model.EmployeeId), "Seleciona um colaborador ativo.");
-        }
+        await ValidateCreateEntriesAsync(access, model.EmployeeId, entries);
 
         if (!ModelState.IsValid)
         {
-            await PopulateCreateSelectsAsync(model);
+            await PopulateCreateSelectsAsync(model, access);
             return View(model);
         }
 
@@ -177,37 +242,45 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
                 WorkDate = entry.WorkDate.Date,
                 Hours = entry.Hours,
                 Description = entry.Description.Trim(),
-                IsBillable = entry.EntryType == TimesheetEntryType.Work && entry.IsBillable
+                IsBillable = entry.EntryType == TimesheetEntryType.Work && entry.IsBillable,
+                ApprovalStatus = TimesheetApprovalStatus.Pending,
+                ApprovedByEmployeeId = null,
+                ApprovedAt = null
             })
             .ToList();
 
         context.TimesheetEntries.AddRange(timesheetEntries);
         await context.SaveChangesAsync();
         TempData["StatusMessage"] = timesheetEntries.Count == 1
-            ? "Registo criado com sucesso."
-            : $"{timesheetEntries.Count} registos criados com sucesso.";
+            ? "Registo criado e enviado para aprovação."
+            : $"{timesheetEntries.Count} registos criados e enviados para aprovação.";
 
         return RedirectToAction(nameof(Index));
     }
 
     public async Task<IActionResult> Edit(int id)
     {
-        var entry = await context.TimesheetEntries.FindAsync(id);
+        var access = await GetAccessContextAsync();
+        var entry = await context.TimesheetEntries
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == id);
+
         if (entry is null)
         {
             return NotFound();
         }
 
-        if (!CanManageEntry(entry.EmployeeId))
+        if (!CanManageEntry(access, entry.EmployeeId, entry.ProjectId))
         {
             return Forbid();
         }
 
-        var isAdmin = IsAdmin();
         var model = new TimesheetEntryFormViewModel
         {
             Id = entry.Id,
-            CanChooseEmployee = isAdmin,
+            CanChooseEmployee = access.CanChooseEmployees,
+            CanApprove = CanApproveEntry(access, entry.EmployeeId, entry.ProjectId, entry.ApprovalStatus),
+            ApprovalStatus = entry.ApprovalStatus,
             EmployeeId = entry.EmployeeId,
             EntryType = entry.EntryType,
             ProjectId = entry.ProjectId,
@@ -215,7 +288,7 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
             Hours = entry.Hours,
             Description = entry.Description,
             IsBillable = entry.IsBillable,
-            Employees = isAdmin ? await GetEmployeeOptionsAsync(entry.EmployeeId) : [],
+            Employees = access.CanChooseEmployees ? await GetEmployeeOptionsAsync(access, entry.EmployeeId) : [],
             Projects = await GetProjectOptionsAsync(entry.ProjectId),
             EntryTypes = GetEntryTypeOptions(entry.EntryType)
         };
@@ -232,44 +305,51 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
             return NotFound();
         }
 
-        var isAdmin = IsAdmin();
-        model.CanChooseEmployee = isAdmin;
+        var access = await GetAccessContextAsync();
+        model.CanChooseEmployee = access.CanChooseEmployees;
 
-        if (!isAdmin)
+        if (!access.CanChooseEmployees)
         {
-            model.EmployeeId = GetCurrentEmployeeId();
+            model.EmployeeId = access.CurrentEmployeeId;
             ModelState.Remove(nameof(model.EmployeeId));
         }
 
-        await ValidateSingleEntryAsync(model.EmployeeId, model.EntryType, model.ProjectId, model.WorkDate, model.Hours, id);
+        var existingEntry = await context.TimesheetEntries
+            .FirstOrDefaultAsync(item => item.Id == id);
 
-        if (!ModelState.IsValid)
-        {
-            await PopulateEditSelectsAsync(model);
-            return View(model);
-        }
-
-        var entry = await context.TimesheetEntries.FindAsync(id);
-        if (entry is null)
+        if (existingEntry is null)
         {
             return NotFound();
         }
 
-        if (!CanManageEntry(entry.EmployeeId))
+        if (!CanManageEntry(access, existingEntry.EmployeeId, existingEntry.ProjectId))
         {
             return Forbid();
         }
 
-        entry.EmployeeId = model.EmployeeId;
-        entry.EntryType = model.EntryType;
-        entry.ProjectId = model.EntryType == TimesheetEntryType.Work ? model.ProjectId : null;
-        entry.WorkDate = model.WorkDate.Date;
-        entry.Hours = model.Hours;
-        entry.Description = model.Description.Trim();
-        entry.IsBillable = model.EntryType == TimesheetEntryType.Work && model.IsBillable;
+        await ValidateSingleEntryAsync(access, model.EmployeeId, model.EntryType, model.ProjectId, model.WorkDate, model.Hours, id);
+
+        if (!ModelState.IsValid)
+        {
+            model.ApprovalStatus = existingEntry.ApprovalStatus;
+            model.CanApprove = CanApproveEntry(access, existingEntry.EmployeeId, existingEntry.ProjectId, existingEntry.ApprovalStatus);
+            await PopulateEditSelectsAsync(model, access);
+            return View(model);
+        }
+
+        existingEntry.EmployeeId = model.EmployeeId;
+        existingEntry.EntryType = model.EntryType;
+        existingEntry.ProjectId = model.EntryType == TimesheetEntryType.Work ? model.ProjectId : null;
+        existingEntry.WorkDate = model.WorkDate.Date;
+        existingEntry.Hours = model.Hours;
+        existingEntry.Description = model.Description.Trim();
+        existingEntry.IsBillable = model.EntryType == TimesheetEntryType.Work && model.IsBillable;
+        existingEntry.ApprovalStatus = TimesheetApprovalStatus.Pending;
+        existingEntry.ApprovedByEmployeeId = null;
+        existingEntry.ApprovedAt = null;
 
         await context.SaveChangesAsync();
-        TempData["StatusMessage"] = "Registo atualizado.";
+        TempData["StatusMessage"] = "Registo atualizado e reenviado para aprovação.";
 
         return RedirectToAction(nameof(Index));
     }
@@ -278,13 +358,18 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
-        var entry = await context.TimesheetEntries.FindAsync(id);
+        var access = await GetAccessContextAsync();
+        var entry = await context.TimesheetEntries
+            .Include(item => item.Employee)
+            .Include(item => item.Project)
+            .FirstOrDefaultAsync(item => item.Id == id);
+
         if (entry is null)
         {
             return NotFound();
         }
 
-        if (!CanManageEntry(entry.EmployeeId))
+        if (!CanManageEntry(access, entry.EmployeeId, entry.ProjectId))
         {
             return Forbid();
         }
@@ -296,6 +381,44 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Approve(int id, int? employeeId, int? projectId, DateTime? fromDate, DateTime? toDate)
+    {
+        var access = await GetAccessContextAsync();
+        var entry = await context.TimesheetEntries
+            .FirstOrDefaultAsync(item => item.Id == id);
+
+        if (entry is null)
+        {
+            return NotFound();
+        }
+
+        if (!CanApproveEntry(access, entry.EmployeeId, entry.ProjectId, entry.ApprovalStatus))
+        {
+            return Forbid();
+        }
+
+        entry.ApprovalStatus = TimesheetApprovalStatus.Approved;
+        entry.ApprovedByEmployeeId = access.CurrentEmployeeId;
+        entry.ApprovedAt = DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
+
+        await notificationService.NotifyAsync(
+            entry.EmployeeId,
+            AppNotificationType.TimesheetApproved,
+            "Horas aprovadas",
+            $"O teu registo de {entry.Hours:0.##}h em {entry.WorkDate:dd/MM/yyyy} foi aprovado.",
+            Url.Action(nameof(Index), "TimesheetEntries"),
+            sendEmail: true,
+            emailSubject: "TimeFlow · Horas aprovadas");
+
+        TempData["StatusMessage"] = "Registo aprovado.";
+
+        return RedirectToAction(nameof(Index), new { employeeId, projectId, fromDate, toDate });
+    }
+
     public async Task<IActionResult> MonthlyPdf(string month, int? employeeId)
     {
         if (!TryParseMonth(month, out var monthStart))
@@ -304,9 +427,10 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
             return RedirectToAction(nameof(Index), new { employeeId });
         }
 
-        var effectiveEmployeeId = IsAdmin()
+        var access = await GetAccessContextAsync();
+        var effectiveEmployeeId = access.IsAdmin
             ? employeeId
-            : GetCurrentEmployeeId();
+            : access.CurrentEmployeeId;
 
         if (!effectiveEmployeeId.HasValue)
         {
@@ -354,16 +478,18 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
 
     public async Task<IActionResult> ReportPdf(int? employeeId, int? projectId, DateTime? fromDate, DateTime? toDate)
     {
-        if (!IsAdmin())
+        var access = await GetAccessContextAsync();
+        if (!access.IsAdmin)
         {
-            employeeId = GetCurrentEmployeeId();
+            employeeId = access.CurrentEmployeeId;
         }
 
-        var query = context.TimesheetEntries
-            .AsNoTracking()
-            .Include(entry => entry.Employee)
-            .Include(entry => entry.Project)
-            .AsQueryable();
+        var query = ApplyEntryScope(
+            context.TimesheetEntries
+                .AsNoTracking()
+                .Include(entry => entry.Employee)
+                .Include(entry => entry.Project),
+            access);
 
         if (employeeId.HasValue)
         {
@@ -436,26 +562,39 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
         return File(pdf, "application/pdf", "savana-relatorio-horas.pdf");
     }
 
-    private async Task PopulateEditSelectsAsync(TimesheetEntryFormViewModel model)
+    private async Task PopulateEditSelectsAsync(TimesheetEntryFormViewModel model, AccessContext access)
     {
-        model.Employees = model.CanChooseEmployee ? await GetEmployeeOptionsAsync(model.EmployeeId) : [];
+        model.Employees = model.CanChooseEmployee ? await GetEmployeeOptionsAsync(access, model.EmployeeId) : [];
         model.Projects = await GetProjectOptionsAsync(model.ProjectId);
         model.EntryTypes = GetEntryTypeOptions(model.EntryType);
     }
 
-    private async Task PopulateCreateSelectsAsync(TimesheetEntryCreateViewModel model)
+    private async Task PopulateCreateSelectsAsync(TimesheetEntryCreateViewModel model, AccessContext access)
     {
-        model.Employees = model.CanChooseEmployee ? await GetEmployeeOptionsAsync(model.EmployeeId) : [];
+        model.Employees = model.CanChooseEmployee ? await GetEmployeeOptionsAsync(access, model.EmployeeId) : [];
         model.Projects = await GetProjectCalendarOptionsAsync();
         model.EntryTypes = GetEntryTypeOptions();
-        model.ExistingEntries = await GetExistingCalendarEntriesAsync();
+        model.ExistingEntries = await GetExistingCalendarEntriesAsync(access);
     }
 
-    private async Task<List<SelectListItem>> GetEmployeeOptionsAsync(int? selectedId = null)
+    private async Task<List<SelectListItem>> GetEmployeeOptionsAsync(AccessContext access, int? selectedId = null)
     {
+        var currentEmployeeId = access.CurrentEmployeeId;
+        var employeeIds = access.IsAdmin
+            ? await context.Employees
+                .AsNoTracking()
+                .Where(employee => employee.IsActive || employee.Id == selectedId)
+                .OrderBy(employee => employee.FullName)
+                .Select(employee => employee.Id)
+                .ToListAsync()
+            : new[] { currentEmployeeId }
+                .Concat(access.ManagedEmployeeIds)
+                .Distinct()
+                .ToList();
+
         return await context.Employees
             .AsNoTracking()
-            .Where(employee => employee.IsActive || employee.Id == selectedId)
+            .Where(employee => employeeIds.Contains(employee.Id))
             .OrderBy(employee => employee.FullName)
             .Select(employee => new SelectListItem
             {
@@ -495,15 +634,14 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
             .ToListAsync();
     }
 
-    private async Task<List<ExistingCalendarEntryViewModel>> GetExistingCalendarEntriesAsync()
+    private async Task<List<ExistingCalendarEntryViewModel>> GetExistingCalendarEntriesAsync(AccessContext access)
     {
-        var query = context.TimesheetEntries.AsNoTracking();
-
-        if (!IsAdmin())
-        {
-            var employeeId = GetCurrentEmployeeId();
-            query = query.Where(entry => entry.EmployeeId == employeeId);
-        }
+        var query = ApplyEntryScope(
+            context.TimesheetEntries
+                .AsNoTracking()
+                .Include(entry => entry.Project)
+                .Include(entry => entry.ApprovedByEmployee),
+            access);
 
         return await query
             .OrderBy(entry => entry.WorkDate)
@@ -514,11 +652,14 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
                 EmployeeId = entry.EmployeeId,
                 WorkDate = entry.WorkDate,
                 EntryType = entry.EntryType,
+                ApprovalStatus = entry.ApprovalStatus,
                 ProjectId = entry.ProjectId,
                 ProjectName = entry.Project != null ? entry.Project.Name : string.Empty,
                 ProjectColorHex = entry.Project != null ? entry.Project.ColorHex : "#6B8760",
                 Hours = entry.Hours,
-                Description = entry.Description
+                Description = entry.Description,
+                ApprovedByEmployeeName = entry.ApprovedByEmployee != null ? entry.ApprovedByEmployee.FullName : null,
+                ApprovedAt = entry.ApprovedAt
             })
             .ToListAsync();
     }
@@ -647,20 +788,9 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
             out monthStart);
     }
 
-    private bool IsAdmin()
+    private static bool IsWeekend(DateTime date)
     {
-        return User.IsInRole("Admin");
-    }
-
-    private int GetCurrentEmployeeId()
-    {
-        var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return int.TryParse(value, out var employeeId) ? employeeId : 0;
-    }
-
-    private bool CanManageEntry(int employeeId)
-    {
-        return IsAdmin() || employeeId == GetCurrentEmployeeId();
+        return date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
     }
 
     private List<TimesheetEntryCreateInput> ParseEntries(string entriesJson)
@@ -689,8 +819,18 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
         }
     }
 
-    private async Task ValidateCreateEntriesAsync(int employeeId, List<TimesheetEntryCreateInput> entries)
+    private async Task ValidateCreateEntriesAsync(AccessContext access, int employeeId, List<TimesheetEntryCreateInput> entries)
     {
+        if (!await context.Employees.AnyAsync(employee => employee.Id == employeeId && employee.IsActive))
+        {
+            ModelState.AddModelError(nameof(TimesheetEntryCreateViewModel.EmployeeId), "Seleciona um colaborador ativo.");
+        }
+
+        if (!CanAssignEmployee(access, employeeId))
+        {
+            ModelState.AddModelError(nameof(TimesheetEntryCreateViewModel.EmployeeId), "Não tens permissões para lançar horas para este colaborador.");
+        }
+
         var projects = await context.Projects
             .AsNoTracking()
             .Where(project => project.IsActive)
@@ -740,8 +880,18 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
         }
     }
 
-    private async Task ValidateSingleEntryAsync(int employeeId, TimesheetEntryType entryType, int? projectId, DateTime workDate, decimal hours, int? entryIdToIgnore)
+    private async Task ValidateSingleEntryAsync(AccessContext access, int employeeId, TimesheetEntryType entryType, int? projectId, DateTime workDate, decimal hours, int? entryIdToIgnore)
     {
+        if (!await context.Employees.AnyAsync(employee => employee.Id == employeeId && employee.IsActive))
+        {
+            ModelState.AddModelError(nameof(TimesheetEntryFormViewModel.EmployeeId), "Seleciona um colaborador ativo.");
+        }
+
+        if (!CanAssignEmployee(access, employeeId))
+        {
+            ModelState.AddModelError(nameof(TimesheetEntryFormViewModel.EmployeeId), "Não tens permissões para alterar este colaborador.");
+        }
+
         if (hours is < 0.25m or > 12m)
         {
             ModelState.AddModelError(nameof(TimesheetEntryFormViewModel.Hours), "As horas devem estar entre 0,25h e 12h.");
@@ -759,32 +909,134 @@ public class TimesheetEntriesController(AppDbContext context, ITimesheetPdfServi
                 project = await context.Projects.AsNoTracking().FirstOrDefaultAsync(item => item.Id == projectId.Value && item.IsActive);
                 if (project is null)
                 {
-                    ModelState.AddModelError(nameof(TimesheetEntryFormViewModel.ProjectId), "Seleciona um projeto ativo.");
+                    ModelState.AddModelError(nameof(TimesheetEntryFormViewModel.ProjectId), "Seleciona um projeto válido.");
                 }
                 else if (IsWeekend(workDate) && !project.AllowWeekendWork)
                 {
-                    ModelState.AddModelError(nameof(TimesheetEntryFormViewModel.WorkDate), $"O projeto \"{project.Name}\" não permite registos ao fim de semana.");
+                    ModelState.AddModelError(nameof(TimesheetEntryFormViewModel.WorkDate), "O projeto selecionado não permite registos ao fim de semana.");
                 }
             }
         }
 
-        var existingHoursQuery = context.TimesheetEntries
-            .Where(entry => entry.EmployeeId == employeeId && entry.WorkDate == workDate.Date);
+        var existingHours = await context.TimesheetEntries
+            .Where(entry => entry.EmployeeId == employeeId &&
+                            entry.WorkDate == workDate.Date &&
+                            (!entryIdToIgnore.HasValue || entry.Id != entryIdToIgnore.Value))
+            .SumAsync(entry => (decimal?)entry.Hours) ?? 0m;
 
-        if (entryIdToIgnore.HasValue)
-        {
-            existingHoursQuery = existingHoursQuery.Where(entry => entry.Id != entryIdToIgnore.Value);
-        }
-
-        var existingHours = await existingHoursQuery.SumAsync(entry => (decimal?)entry.Hours) ?? 0m;
         if (existingHours + hours > 12m)
         {
-            ModelState.AddModelError(nameof(TimesheetEntryFormViewModel.Hours), "O total de horas neste dia não pode ultrapassar 12h.");
+            ModelState.AddModelError(nameof(TimesheetEntryFormViewModel.Hours), "O total diário não pode ultrapassar 12h.");
         }
     }
 
-    private static bool IsWeekend(DateTime date)
+    private async Task<AccessContext> GetAccessContextAsync()
     {
-        return date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+        var currentEmployeeId = GetCurrentEmployeeId();
+        var isAdmin = User.IsInRole(AppRoles.Admin);
+        var isManager = !isAdmin && User.IsInRole(AppRoles.Manager);
+
+        if (!isManager)
+        {
+            return new AccessContext(isAdmin, false, currentEmployeeId, [], []);
+        }
+
+        var managedEmployeeIds = await context.Employees
+            .AsNoTracking()
+            .Where(employee => employee.ResponsibleId == currentEmployeeId)
+            .Select(employee => employee.Id)
+            .ToListAsync();
+
+        var managedProjectIds = await context.Projects
+            .AsNoTracking()
+            .Where(project => project.ResponsibleEmployees.Any(employee => employee.Id == currentEmployeeId))
+            .Select(project => project.Id)
+            .ToListAsync();
+
+        return new AccessContext(isAdmin, true, currentEmployeeId, managedEmployeeIds, managedProjectIds);
+    }
+
+    private IQueryable<TimesheetEntry> ApplyEntryScope(IQueryable<TimesheetEntry> query, AccessContext access)
+    {
+        if (access.IsAdmin)
+        {
+            return query;
+        }
+
+        if (access.IsManager)
+        {
+            return query.Where(entry =>
+                entry.EmployeeId == access.CurrentEmployeeId ||
+                access.ManagedEmployeeIds.Contains(entry.EmployeeId) ||
+                (entry.ProjectId.HasValue && access.ManagedProjectIds.Contains(entry.ProjectId.Value)));
+        }
+
+        return query.Where(entry => entry.EmployeeId == access.CurrentEmployeeId);
+    }
+
+    private bool CanAssignEmployee(AccessContext access, int employeeId)
+    {
+        return access.IsAdmin ||
+               employeeId == access.CurrentEmployeeId ||
+               access.ManagedEmployeeIds.Contains(employeeId);
+    }
+
+    private bool CanManageEntry(AccessContext access, int employeeId, int? projectId)
+    {
+        if (access.IsAdmin)
+        {
+            return true;
+        }
+
+        if (employeeId == access.CurrentEmployeeId)
+        {
+            return true;
+        }
+
+        if (!access.IsManager)
+        {
+            return false;
+        }
+
+        return access.ManagedEmployeeIds.Contains(employeeId) ||
+               (projectId.HasValue && access.ManagedProjectIds.Contains(projectId.Value));
+    }
+
+    private bool CanApproveEntry(AccessContext access, int employeeId, int? projectId, TimesheetApprovalStatus approvalStatus)
+    {
+        if (approvalStatus == TimesheetApprovalStatus.Approved)
+        {
+            return false;
+        }
+
+        if (access.IsAdmin)
+        {
+            return true;
+        }
+
+        if (!access.IsManager || employeeId == access.CurrentEmployeeId)
+        {
+            return false;
+        }
+
+        return access.ManagedEmployeeIds.Contains(employeeId) ||
+               (projectId.HasValue && access.ManagedProjectIds.Contains(projectId.Value));
+    }
+
+    private int GetCurrentEmployeeId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(value, out var employeeId) ? employeeId : 0;
+    }
+
+    private sealed record AccessContext(
+        bool IsAdmin,
+        bool IsManager,
+        int CurrentEmployeeId,
+        List<int> ManagedEmployeeIds,
+        List<int> ManagedProjectIds)
+    {
+        public bool CanChooseEmployees => IsAdmin || IsManager;
+        public bool CanApproveEntries => IsAdmin || IsManager;
     }
 }

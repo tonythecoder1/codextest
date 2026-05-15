@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Timesheets.Web.Data;
 using Timesheets.Web.Models;
+using Timesheets.Web.Security;
 using Timesheets.Web.ViewModels;
 
 namespace Timesheets.Web.Controllers;
@@ -14,15 +15,38 @@ public class HomeController(ILogger<HomeController> logger, AppDbContext context
 {
     public async Task<IActionResult> Index()
     {
-        var isAdmin = User.IsInRole("Admin");
+        var isAdmin = User.IsInRole(AppRoles.Admin);
+        var isManager = !isAdmin && User.IsInRole(AppRoles.Manager);
         var currentEmployeeId = GetCurrentEmployeeId();
         var today = DateTime.Today;
         var daysSinceMonday = today.DayOfWeek == DayOfWeek.Sunday ? 6 : (int)today.DayOfWeek - 1;
         var startOfWeek = today.AddDays(-daysSinceMonday);
         var startOfMonth = new DateTime(today.Year, today.Month, 1);
+        var managedEmployeeIds = isManager
+            ? await context.Employees
+                .AsNoTracking()
+                .Where(employee => employee.ResponsibleId == currentEmployeeId)
+                .Select(employee => employee.Id)
+                .ToListAsync()
+            : [];
+        var managedProjectIds = isManager
+            ? await context.Projects
+                .AsNoTracking()
+                .Where(project => project.ResponsibleEmployees.Any(employee => employee.Id == currentEmployeeId))
+                .Select(project => project.Id)
+                .ToListAsync()
+            : [];
+
         var timesheetEntries = context.TimesheetEntries.AsNoTracking().AsQueryable();
 
-        if (!isAdmin)
+        if (isManager)
+        {
+            timesheetEntries = timesheetEntries.Where(entry =>
+                entry.EmployeeId == currentEmployeeId ||
+                managedEmployeeIds.Contains(entry.EmployeeId) ||
+                (entry.ProjectId.HasValue && managedProjectIds.Contains(entry.ProjectId.Value)));
+        }
+        else if (!isAdmin)
         {
             timesheetEntries = timesheetEntries.Where(entry => entry.EmployeeId == currentEmployeeId);
         }
@@ -30,65 +54,66 @@ public class HomeController(ILogger<HomeController> logger, AppDbContext context
         var model = new DashboardViewModel
         {
             IsAdmin = isAdmin,
-            PrimaryStatLabel = isAdmin ? "Colaboradores ativos" : "A minha equipa",
-            SecondaryStatLabel = isAdmin ? "Projetos ativos" : "Os meus projetos",
-            SummaryEyebrow = isAdmin ? "Capacidade" : "Resumo",
-            SummarySectionTitle = isAdmin ? "Horas por colaborador" : "As minhas horas no mês",
+            IsManager = isManager,
+            PrimaryStatLabel = isAdmin ? "Colaboradores ativos" : isManager ? "Colaboradores a cargo" : "A minha equipa",
+            SecondaryStatLabel = isAdmin ? "Projetos ativos" : isManager ? "Projetos a cargo" : "Os meus projetos",
+            SummaryEyebrow = isAdmin ? "Capacidade" : isManager ? "Equipa" : "Resumo",
+            SummarySectionTitle = isAdmin ? "Horas por colaborador" : isManager ? "Horas da equipa" : "As minhas horas no mês",
             ActiveEmployees = isAdmin
-                ? await context.Employees.CountAsync(e => e.IsActive)
-                : 1,
+                ? await context.Employees.CountAsync(employee => employee.IsActive)
+                : isManager
+                    ? managedEmployeeIds.Count
+                    : 1,
             ActiveProjects = isAdmin
-                ? await context.Projects.CountAsync(p => p.IsActive)
-                : await timesheetEntries.Select(entry => entry.ProjectId).Distinct().CountAsync(),
+                ? await context.Projects.CountAsync(project => project.IsActive)
+                : isManager
+                    ? managedProjectIds.Count
+                    : await timesheetEntries.Select(entry => entry.ProjectId).Distinct().CountAsync(),
             HoursThisWeek = await timesheetEntries
-                .Where(e => e.WorkDate >= startOfWeek && e.WorkDate <= today)
-                .SumAsync(e => (decimal?)e.Hours) ?? 0m,
+                .Where(entry => entry.WorkDate >= startOfWeek && entry.WorkDate <= today)
+                .SumAsync(entry => (decimal?)entry.Hours) ?? 0m,
             HoursThisMonth = await timesheetEntries
-                .Where(e => e.WorkDate >= startOfMonth && e.WorkDate <= today)
-                .SumAsync(e => (decimal?)e.Hours) ?? 0m,
+                .Where(entry => entry.WorkDate >= startOfMonth && entry.WorkDate <= today)
+                .SumAsync(entry => (decimal?)entry.Hours) ?? 0m,
+            PendingApprovals = isAdmin
+                ? await context.TimesheetEntries.CountAsync(entry => entry.ApprovalStatus == TimesheetApprovalStatus.Pending)
+                : isManager
+                    ? await context.TimesheetEntries.CountAsync(entry =>
+                        entry.ApprovalStatus == TimesheetApprovalStatus.Pending &&
+                        entry.EmployeeId != currentEmployeeId &&
+                        (managedEmployeeIds.Contains(entry.EmployeeId) ||
+                         (entry.ProjectId.HasValue && managedProjectIds.Contains(entry.ProjectId.Value))))
+                    : await context.TimesheetEntries.CountAsync(entry =>
+                        entry.EmployeeId == currentEmployeeId &&
+                        entry.ApprovalStatus == TimesheetApprovalStatus.Pending),
             RecentEntries = await timesheetEntries
-                .AsNoTracking()
-                .Include(e => e.Employee)
-                .Include(e => e.Project)
-                .OrderByDescending(e => e.WorkDate)
-                .ThenByDescending(e => e.Id)
+                .Include(entry => entry.Employee)
+                .Include(entry => entry.Project)
+                .OrderByDescending(entry => entry.WorkDate)
+                .ThenByDescending(entry => entry.Id)
                 .Take(8)
-                .Select(e => new DashboardRecentEntryViewModel
+                .Select(entry => new DashboardRecentEntryViewModel
                 {
-                    WorkDate = e.WorkDate,
-                    EmployeeName = e.Employee!.FullName,
-                    ProjectName = e.Project!.Name,
-                    Hours = e.Hours,
-                    IsBillable = e.IsBillable,
-                    Description = e.Description
+                    WorkDate = entry.WorkDate,
+                    EmployeeName = entry.Employee!.FullName,
+                    ProjectName = entry.Project != null ? entry.Project.Name : "-",
+                    Hours = entry.Hours,
+                    IsBillable = entry.IsBillable,
+                    ApprovalStatus = entry.ApprovalStatus,
+                    Description = entry.Description
                 })
                 .ToListAsync(),
-            EmployeeHoursThisMonth = isAdmin
-                ? await timesheetEntries
-                    .AsNoTracking()
-                    .Include(e => e.Employee)
-                    .Where(e => e.WorkDate >= startOfMonth && e.WorkDate <= today)
-                    .GroupBy(e => e.Employee!.FullName)
-                    .Select(group => new EmployeeHoursSummaryViewModel
-                    {
-                        EmployeeName = group.Key,
-                        TotalHours = group.Sum(e => e.Hours),
-                        BillableHours = group.Where(e => e.IsBillable).Sum(e => e.Hours)
-                    })
-                    .OrderByDescending(e => e.TotalHours)
-                    .ToListAsync()
-                : await timesheetEntries
-                .AsNoTracking()
-                .Include(e => e.Employee)
-                .Where(e => e.WorkDate >= startOfMonth && e.WorkDate <= today)
-                .GroupBy(e => e.Employee!.FullName)
+            EmployeeHoursThisMonth = await timesheetEntries
+                .Include(entry => entry.Employee)
+                .Where(entry => entry.WorkDate >= startOfMonth && entry.WorkDate <= today)
+                .GroupBy(entry => entry.Employee!.FullName)
                 .Select(group => new EmployeeHoursSummaryViewModel
                 {
                     EmployeeName = group.Key,
-                    TotalHours = group.Sum(e => e.Hours),
-                    BillableHours = group.Where(e => e.IsBillable).Sum(e => e.Hours)
+                    TotalHours = group.Sum(entry => entry.Hours),
+                    BillableHours = group.Where(entry => entry.IsBillable).Sum(entry => entry.Hours)
                 })
-                .OrderByDescending(e => e.TotalHours)
+                .OrderByDescending(entry => entry.TotalHours)
                 .ToListAsync()
         };
 

@@ -7,6 +7,7 @@ namespace Timesheets.Web.ViewModels;
 public class TimesheetEntryCreateViewModel
 {
     public bool CanChooseEmployee { get; set; }
+    public bool IsManagerContext { get; set; }
     public List<ExistingCalendarEntryViewModel> ExistingEntries { get; set; } = [];
 
     [Required]
@@ -48,9 +49,12 @@ public class ExistingCalendarEntryViewModel
     public int EmployeeId { get; set; }
     public DateTime WorkDate { get; set; }
     public TimesheetEntryType EntryType { get; set; }
+    public TimesheetApprovalStatus ApprovalStatus { get; set; }
     public int? ProjectId { get; set; }
     public string ProjectName { get; set; } = string.Empty;
     public string ProjectColorHex { get; set; } = "#6B8760";
     public decimal Hours { get; set; }
     public string Description { get; set; } = string.Empty;
+    public string? ApprovedByEmployeeName { get; set; }
+    public DateTime? ApprovedAt { get; set; }
 }

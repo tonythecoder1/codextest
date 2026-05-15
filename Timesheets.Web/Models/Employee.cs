@@ -26,16 +26,27 @@ public class Employee
     [Display(Name = "Ativo")]
     public bool IsActive { get; set; } = true;
 
+    [Display(Name = "Responsável")]
+    public int? ResponsibleId { get; set; }
+
     [Required]
     public string PasswordHash { get; set; } = string.Empty;
 
     [Display(Name = "Administrador")]
     public bool IsAdmin { get; set; }
 
+    [Display(Name = "Responsável")]
+    public bool IsManager { get; set; }
+
     [NotMapped]
     [DataType(DataType.Password)]
     [Display(Name = "Password")]
     public string? Password { get; set; }
 
+    public Employee? Responsible { get; set; }
+    public ICollection<Employee> ManagedEmployees { get; set; } = new List<Employee>();
+    public ICollection<Project> ManagedProjects { get; set; } = new List<Project>();
     public ICollection<TimesheetEntry> TimesheetEntries { get; set; } = new List<TimesheetEntry>();
+    public ICollection<AppNotification> Notifications { get; set; } = new List<AppNotification>();
+    public ICollection<PasswordResetToken> PasswordResetTokens { get; set; } = new List<PasswordResetToken>();
 }

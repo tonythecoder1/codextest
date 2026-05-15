@@ -1,3 +1,28 @@
+@using System.Security.Claims
+@using Microsoft.EntityFrameworkCore
+@using Timesheets.Web.Data
+@inject AppDbContext LayoutDbContext
+
+@{
+    var headerNotifications = new List<AppNotification>();
+    var headerUnreadCount = 0;
+
+    if (User.Identity?.IsAuthenticated == true &&
+        int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var headerEmployeeId))
+    {
+        headerUnreadCount = await LayoutDbContext.AppNotifications
+            .AsNoTracking()
+            .CountAsync(notification => notification.EmployeeId == headerEmployeeId && notification.ReadAt == null);
+
+        headerNotifications = await LayoutDbContext.AppNotifications
+            .AsNoTracking()
+            .Where(notification => notification.EmployeeId == headerEmployeeId)
+            .OrderByDescending(notification => notification.CreatedAt)
+            .Take(6)
+            .ToListAsync();
+    }
+}
+
 <!DOCTYPE html>
 <html lang="pt">
 <head>
@@ -28,17 +53,81 @@
                             <li class="nav-item">
                                 <a class="nav-link" asp-controller="TimesheetEntries" asp-action="Index">Horas</a>
                             </li>
-                            @if (User.IsInRole("Admin"))
+                            @if (User.IsInRole("Admin") || User.IsInRole("Manager"))
                             {
                                 <li class="nav-item">
                                     <a class="nav-link" asp-controller="Employees" asp-action="Index">Colaboradores</a>
                                 </li>
+                            }
+                            @if (User.IsInRole("Admin"))
+                            {
                                 <li class="nav-item">
                                     <a class="nav-link" asp-controller="Projects" asp-action="Index">Projetos</a>
                                 </li>
                             }
                         </ul>
                         <div class="nav-user">
+                            <div class="dropdown notification-dropdown">
+                                <button class="notification-trigger" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                                        aria-expanded="false" aria-label="Notificações">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M12 3.5a5.5 5.5 0 0 0-5.5 5.5v2.45c0 .78-.25 1.54-.72 2.16l-.9 1.2a1.25 1.25 0 0 0 1 2h12.24a1.25 1.25 0 0 0 1-2l-.9-1.2a3.5 3.5 0 0 1-.72-2.16V9A5.5 5.5 0 0 0 12 3.5Z" />
+                                        <path d="M9.65 18.35a2.5 2.5 0 0 0 4.7 0" />
+                                    </svg>
+                                    @if (headerUnreadCount > 0)
+                                    {
+                                        <span class="notification-badge" data-notification-badge>@Math.Min(headerUnreadCount, 9)</span>
+                                    }
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end notification-menu">
+                                    <form class="notification-token-form d-none">
+                                        @Html.AntiForgeryToken()
+                                    </form>
+                                    <div class="notification-menu-header">
+                                        <div>
+                                            <strong>Notificações</strong>
+                                            <span>@headerUnreadCount por ler</span>
+                                        </div>
+                                        @if (headerUnreadCount > 0)
+                                        {
+                                            <button type="button" class="notification-mark-all" data-notification-mark-all-url="@Url.Action("MarkAllRead", "Notifications")">
+                                                Marcar lidas
+                                            </button>
+                                        }
+                                    </div>
+                                    <div class="notification-menu-list">
+                                        @if (headerNotifications.Count == 0)
+                                        {
+                                            <div class="notification-empty">Sem notificações.</div>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var notification in headerNotifications)
+                                            {
+                                                var notificationPreview = notification.Message.Replace("\r", " ").Replace("\n", " ");
+                                                if (notificationPreview.Length > 118)
+                                                {
+                                                    notificationPreview = $"{notificationPreview[..115]}...";
+                                                }
+
+                                                <article class="notification-menu-item @(notification.ReadAt is null ? "is-unread" : "")">
+                                                    <div>
+                                                        <strong>@notification.Title</strong>
+                                                        <p>@notificationPreview</p>
+                                                        <small>@notification.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm")</small>
+                                                    </div>
+                                                    <button type="button"
+                                                            class="btn btn-sm btn-outline-secondary notification-open-button"
+                                                            data-notification-read-url="@Url.Action("MarkRead", "Notifications", new { id = notification.Id })"
+                                                            data-notification-target-url="@notification.Url">
+                                                        @(string.IsNullOrWhiteSpace(notification.Url) ? "Lida" : "Abrir")
+                                                    </button>
+                                                </article>
+                                            }
+                                        }
+                                    </div>
+                                </div>
+                            </div>
                             <span>@User.Identity.Name</span>
                             <form asp-controller="Account" asp-action="Logout" method="post">
                                 @Html.AntiForgeryToken()
@@ -70,7 +159,9 @@
 
     <footer class="footer text-muted">
         <div class="container footer-content">
-            <img src="~/branding/savana-company.jpeg" alt="Savana" class="footer-company-logo" />
+            <span class="footer-company-mark" aria-label="Savana">
+                <img src="~/branding/savana-company.jpeg" alt="Savana" class="footer-company-logo" />
+            </span>
             <span>@DateTime.Now.Year</span>
         </div>
     </footer>

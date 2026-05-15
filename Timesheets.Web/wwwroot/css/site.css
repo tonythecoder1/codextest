@@ -60,15 +60,53 @@ body {
 }
 
 .app-brand {
+  position: relative;
   display: inline-flex;
   align-items: center;
   color: var(--text);
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 0.9rem;
+  transform: translateZ(0);
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), filter 0.42s ease;
+}
+
+.app-brand::before {
+  content: "";
+  position: absolute;
+  inset: -55% -35%;
+  z-index: 1;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.7) 49%, transparent 63%);
+  opacity: 0;
+  transform: translateX(-78%) rotate(8deg);
+  transition: transform 0.72s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.24s ease;
+  pointer-events: none;
+}
+
+.app-brand:hover,
+.app-brand:focus {
+  transform: translateY(-2px) scale(1.025);
+  filter: drop-shadow(0 14px 22px rgba(var(--accent-rgb), 0.14));
+}
+
+.app-brand:hover::before,
+.app-brand:focus::before {
+  opacity: 1;
+  transform: translateX(76%) rotate(8deg);
 }
 
 .app-brand-logo {
   display: block;
   width: auto;
   height: 2.5rem;
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), filter 0.42s ease;
+  will-change: transform;
+}
+
+.app-brand:hover .app-brand-logo,
+.app-brand:focus .app-brand-logo {
+  transform: scale(1.012);
+  filter: saturate(1.08) contrast(1.03);
 }
 
 .navbar .nav-link {
@@ -114,6 +152,141 @@ body {
 
 .nav-user form {
   margin: 0;
+}
+
+.notification-dropdown {
+  position: relative;
+}
+
+.notification-trigger {
+  position: relative;
+  display: grid;
+  width: 2.55rem;
+  height: 2.55rem;
+  place-items: center;
+  border: 1px solid rgba(23, 32, 51, 0.1);
+  border-radius: 999px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 10px 28px rgba(23, 32, 51, 0.06);
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.24s ease, box-shadow 0.24s ease;
+}
+
+.notification-trigger:hover,
+.notification-trigger:focus {
+  border-color: rgba(var(--accent-rgb), 0.28);
+  box-shadow: 0 16px 36px rgba(var(--accent-rgb), 0.16);
+  transform: translateY(-2px) scale(1.03);
+}
+
+.notification-trigger svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -0.18rem;
+  right: -0.12rem;
+  display: grid;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  place-items: center;
+  padding: 0 0.28rem;
+  border: 2px solid var(--bg);
+  border-radius: 999px;
+  color: #fff;
+  background: #df2f3b;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.notification-menu {
+  width: min(24rem, calc(100vw - 2rem));
+  padding: 0.75rem;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 24px 70px rgba(23, 32, 51, 0.14);
+  backdrop-filter: blur(18px);
+}
+
+.notification-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.2rem 0.25rem 0.75rem;
+}
+
+.notification-menu-header strong,
+.notification-menu-item strong {
+  display: block;
+  color: var(--text);
+}
+
+.notification-menu-header span,
+.notification-menu-item small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.notification-mark-all {
+  border: 0;
+  padding: 0;
+  color: var(--accent-dark);
+  background: transparent;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.notification-menu-list {
+  display: grid;
+  gap: 0.55rem;
+  max-height: 24rem;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+
+.notification-menu-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.85rem;
+  border: 1px solid rgba(23, 32, 51, 0.07);
+  border-radius: 1rem;
+  background: rgba(246, 241, 231, 0.5);
+}
+
+.notification-menu-item.is-unread {
+  border-color: rgba(var(--accent-rgb), 0.26);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.12), rgba(255, 255, 255, 0.92));
+}
+
+.notification-menu-item p {
+  margin: 0.25rem 0 0.2rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.notification-open-button {
+  align-self: center;
+  white-space: nowrap;
+}
+
+.notification-empty {
+  padding: 1rem;
+  color: var(--muted);
+  text-align: center;
 }
 
 .app-shell {
@@ -234,13 +407,13 @@ body {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
 
 .compact-stats {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
 }
 
 .stat-card,
@@ -358,6 +531,11 @@ body {
 .status-vacation {
   color: #7c3aed;
   background: rgba(124, 58, 237, 0.14);
+}
+
+.status-pending {
+  color: #8a5b1b;
+  background: rgba(207, 174, 110, 0.22);
 }
 
 .filter-shell,
@@ -502,6 +680,64 @@ body {
   margin: 0;
 }
 
+.table-scroll {
+  overflow-x: auto;
+}
+
+.approval-queue-shell {
+  margin-bottom: 1.5rem;
+  padding: 1.15rem;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 1.2rem;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 16px 44px rgba(23, 32, 51, 0.06);
+}
+
+.approval-queue-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.95rem;
+}
+
+.approval-queue-header h2 {
+  margin: 0;
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.approval-queue-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.approval-queue-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.approval-queue-main {
+  display: flex;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.approval-queue-main p {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+}
+
+.approval-action-button {
+  white-space: nowrap;
+}
+
 .form-control,
 .form-select {
   padding: 0.85rem 1rem;
@@ -528,6 +764,22 @@ body {
 
 .auth-card {
   width: min(100%, 28rem);
+}
+
+.auth-links {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.auth-links a {
+  color: var(--accent-dark);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.auth-links a:hover,
+.auth-links a:focus {
+  text-decoration: underline;
 }
 
 .export-shell {
@@ -679,6 +931,14 @@ body {
   color: var(--muted);
 }
 
+.day-entry-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .day-entry-item strong {
   display: block;
   font-size: 1.02rem;
@@ -705,9 +965,16 @@ body {
 }
 
 .editor-actions {
-  display: flex;
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
   margin-top: 1rem;
+}
+
+.editor-actions .btn {
+  width: 100%;
+  min-height: 3rem;
+  white-space: normal;
 }
 
 .calendar-picker {
@@ -715,6 +982,15 @@ body {
   border: 0;
   border-radius: 0;
   background: transparent;
+}
+
+.calendar-grid-shell {
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
+.calendar-grid-inner {
+  min-width: 44rem;
 }
 
 .calendar-toolbar {
@@ -861,6 +1137,70 @@ body {
   color: var(--muted);
 }
 
+.pending-save-button {
+  min-width: 0;
+}
+
+.form-status-row {
+  margin-bottom: 1rem;
+}
+
+.password-target {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.password-target span {
+  color: var(--muted);
+}
+
+.notification-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.notification-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 12px 32px rgba(23, 32, 51, 0.05);
+}
+
+.notification-item.is-unread {
+  border-color: rgba(var(--accent-rgb), 0.24);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.08), rgba(255, 255, 255, 0.88));
+}
+
+.notification-item h2 {
+  margin: 0.55rem 0 0.25rem;
+  font-size: 1.1rem;
+}
+
+.notification-item p {
+  margin: 0;
+  color: var(--muted);
+  white-space: pre-line;
+}
+
+.notification-item small {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--muted);
+}
+
+.notification-email-status {
+  font-weight: 700;
+}
+
 .entry-editor-panel .empty-state {
   font-size: 0.98rem;
   line-height: 1.45;
@@ -1001,12 +1341,55 @@ body {
   color: var(--muted);
 }
 
+.footer-company-mark {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 1rem;
+  transform: translateZ(0);
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), filter 0.45s ease;
+}
+
+.footer-company-mark::before {
+  content: "";
+  position: absolute;
+  inset: -45% -35%;
+  z-index: 1;
+  background: linear-gradient(115deg, transparent 34%, rgba(255, 255, 255, 0.72) 48%, transparent 62%);
+  transform: translateX(-75%) rotate(8deg);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.78s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease;
+}
+
+.footer-company-mark:hover,
+.footer-company-mark:focus-within {
+  transform: translateY(-3px) scale(1.035);
+  filter: drop-shadow(0 18px 26px rgba(var(--accent-rgb), 0.16));
+}
+
+.footer-company-mark:hover::before,
+.footer-company-mark:focus-within::before {
+  opacity: 1;
+  transform: translateX(74%) rotate(8deg);
+}
+
 .footer-company-logo {
   display: block;
   width: auto;
   height: clamp(2.8rem, 4vw, 4.2rem);
   object-fit: contain;
   mix-blend-mode: multiply;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), filter 0.45s ease;
+  will-change: transform;
+}
+
+.footer-company-mark:hover .footer-company-logo,
+.footer-company-mark:focus-within .footer-company-logo {
+  transform: scale(1.015);
+  filter: saturate(1.08) contrast(1.03);
 }
 
 .motion-ready .revealable {
@@ -1056,6 +1439,12 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .calendar-stage,
+  .entry-editor-panel,
+  .card-surface {
+    padding: 1.1rem;
+  }
+
   .app-brand-logo {
     height: 2.2rem;
   }
@@ -1084,6 +1473,104 @@ body {
   .day-entry-item {
     flex-direction: column;
   }
+
+  .approval-queue-header,
+  .approval-queue-item {
+    grid-template-columns: 1fr;
+  }
+
+  .approval-queue-header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .approval-queue-item form,
+  .approval-action-button {
+    width: 100%;
+  }
+
+  .notification-item {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-grid-inner {
+    min-width: 40rem;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .app-shell {
+    padding-top: 1rem;
+  }
+
+  .page-header,
+  .page-actions,
+  .form-actions {
+    gap: 0.65rem;
+  }
+
+  .calendar-toolbar {
+    gap: 0.65rem;
+  }
+
+  .calendar-grid-inner {
+    min-width: 35rem;
+  }
+
+  .calendar-day {
+    min-height: 5.35rem;
+    padding: 0.45rem;
+  }
+
+  .calendar-day-number {
+    font-size: 0.82rem;
+  }
+
+  .calendar-task-chip {
+    font-size: 0.62rem;
+    padding: 0.16rem 0.34rem;
+  }
+
+  .pending-entry-item,
+  .entry-item,
+  .summary-item {
+    padding: 0.9rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .btn {
+    padding: 0.62rem 0.92rem;
+  }
+
+  .btn-sm {
+    padding: 0.42rem 0.72rem;
+  }
+
+  .simple-action-button {
+    min-width: 0;
+  }
+
+  .calendar-grid-inner {
+    min-width: 31rem;
+  }
+
+  .calendar-day {
+    min-height: 4.9rem;
+    border-radius: 0.8rem;
+  }
+
+  .notification-menu-item {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-open-button {
+    justify-self: start;
+  }
+
+  .calendar-weekdays {
+    font-size: 0.72rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1097,6 +1584,13 @@ body {
   .hero-panel::after,
   .btn,
   .btn::after,
+  .app-brand,
+  .app-brand::before,
+  .app-brand-logo,
+  .notification-trigger,
+  .footer-company-mark,
+  .footer-company-mark::before,
+  .footer-company-logo,
   .stat-card,
   .card-surface,
   .calendar-day,

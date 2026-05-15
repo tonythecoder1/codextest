@@ -1,0 +1,58 @@
+@model NotificationsViewModel
+
+@{
+    ViewData["Title"] = "Notificações";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Centro</p>
+        <h1>Notificações</h1>
+    </div>
+    @if (Model.Notifications.Any(notification => notification.ReadAt is null))
+    {
+        <form asp-action="MarkAllRead" method="post">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Marcar tudo como lido</button>
+        </form>
+    }
+</section>
+
+<div class="notification-list">
+    @if (Model.Notifications.Count == 0)
+    {
+        <div class="card-surface">
+            <p class="empty-state mb-0">Sem notificações.</p>
+        </div>
+    }
+    else
+    {
+        @foreach (var notification in Model.Notifications)
+        {
+            <article class="notification-item @(notification.ReadAt is null ? "is-unread" : "")">
+                <div>
+                    <span class="status-pill @(notification.ReadAt is null ? "status-pending" : "status-muted")">
+                        @(notification.ReadAt is null ? "Novo" : "Lido")
+                    </span>
+                    <h2>@notification.Title</h2>
+                    <p>@notification.Message</p>
+                    <small>@notification.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small>
+                    @if (!string.IsNullOrWhiteSpace(notification.EmailError))
+                    {
+                        <small class="notification-email-status">Email: @notification.EmailError</small>
+                    }
+                    else if (notification.EmailSentAt.HasValue)
+                    {
+                        <small class="notification-email-status">Email enviado</small>
+                    }
+                </div>
+                <form asp-action="MarkRead" asp-route-id="@notification.Id" method="post">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-sm @(notification.Url is null ? "btn-outline-secondary" : "btn-primary")">
+                        @(notification.Url is null ? "Marcar lida" : "Abrir")
+                    </button>
+                </form>
+            </article>
+        }
+    }
+</div>

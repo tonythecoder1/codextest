@@ -29,6 +29,16 @@ public class TimesheetEntry
     [Display(Name = "Colaborador")]
     public int EmployeeId { get; set; }
 
+    [Required]
+    [Display(Name = "Estado")]
+    public TimesheetApprovalStatus ApprovalStatus { get; set; } = TimesheetApprovalStatus.Pending;
+
+    [Display(Name = "Aprovado por")]
+    public int? ApprovedByEmployeeId { get; set; }
+
+    [Display(Name = "Aprovado em")]
+    public DateTime? ApprovedAt { get; set; }
+
     [Display(Name = "Projeto")]
     public int? ProjectId { get; set; }
 
@@ -36,5 +46,6 @@ public class TimesheetEntry
     public bool IsBillable { get; set; } = true;
 
     public Employee? Employee { get; set; }
+    public Employee? ApprovedByEmployee { get; set; }
     public Project? Project { get; set; }
 }
